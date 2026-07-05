@@ -2020,7 +2020,7 @@ function SortableSection({
     sectionContainerProps: React.HTMLAttributes<HTMLDivElement> & { ref: (node: HTMLDivElement | null) => void };
   }) => React.ReactNode;
 }) {
-  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
+  const { attributes, listeners, setNodeRef, isDragging } = useSortable({
     id: `section-order:${section.id}`
   });
   return (
@@ -2029,7 +2029,6 @@ function SortableSection({
         sectionHandleProps: { ...attributes, ...listeners } as React.HTMLAttributes<HTMLButtonElement>,
         sectionContainerProps: {
           ref: setNodeRef,
-          style: { transform: CSS.Transform.toString(transform), transition },
           className: cn("rounded-[20px] transition-opacity duration-150", isDragging ? "relative z-20 opacity-30" : "")
         }
       })}
