@@ -115,11 +115,132 @@ export function getAdminBlockGridStyle(block: Block, device: LayoutDevice, size:
   };
 }
 
-export function getPublicBlockPlacementStyle(block: Block): CSSProperties & Record<string, string | number | undefined> {
-  const mobileColumnStart = getBlockColumnStart(block, "mobile");
-  const desktopColumnStart = getBlockColumnStart(block, "desktop");
-  const mobileRowStart = getBlockRowStart(block, "mobile");
-  const desktopRowStart = getBlockRowStart(block, "desktop");
+type GridItem = {
+  id: string;
+  block: Block;
+};
+
+type GridPlacement = {
+  column: number;
+  row: number;
+  columnSpan: number;
+  rowSpan: number;
+};
+
+export function getCompactedBlockGridStyles(items: GridItem[], device: LayoutDevice): Map<string, CSSProperties> {
+  const placements = new Map<string, GridPlacement>();
+  const occupied: boolean[][] = [];
+
+  for (const item of items) {
+    const size = getBlockSize(item.block, device);
+    const columnSpan = getDefaultGridSpan(size, device);
+    const rowSpan = getDefaultRowSpan(size);
+    const preferredColumn = getBlockColumnStart(item.block, device);
+    const preferredRow = getBlockRowStart(item.block, device);
+    const placement = placeGridItem(occupied, 12, columnSpan, rowSpan, preferredColumn, preferredRow);
+    placements.set(item.id, placement);
+  }
+
+  const occupiedRows = new Set<number>();
+  for (const placement of placements.values()) {
+    for (let row = placement.row; row < placement.row + placement.rowSpan; row += 1) {
+      occupiedRows.add(row);
+    }
+  }
+  const compactedRowByOriginal = new Map<number, number>();
+  [...occupiedRows]
+    .sort((a, b) => a - b)
+    .forEach((row, index) => compactedRowByOriginal.set(row, index));
+
+  const styles = new Map<string, CSSProperties>();
+  for (const [id, placement] of placements.entries()) {
+    styles.set(id, {
+      gridColumnStart: placement.column + 1,
+      gridColumnEnd: `span ${placement.columnSpan}`,
+      gridRowStart: (compactedRowByOriginal.get(placement.row) ?? placement.row) + 1,
+      gridRowEnd: `span ${placement.rowSpan}`
+    });
+  }
+
+  return styles;
+}
+
+function placeGridItem(
+  occupied: boolean[][],
+  columns: number,
+  rawColumnSpan: number,
+  rawRowSpan: number,
+  rawColumnStart?: number,
+  rawRowStart?: number
+): GridPlacement {
+  const columnSpan = Math.max(1, Math.min(columns, rawColumnSpan));
+  const rowSpan = Math.max(1, rawRowSpan);
+  const preferredColumn = rawColumnStart ? Math.max(0, Math.min(columns - columnSpan, rawColumnStart - 1)) : null;
+  const preferredRow = rawRowStart ? Math.max(0, Math.min(239, rawRowStart - 1)) : null;
+  const rowsToTry =
+    preferredRow === null
+      ? Array.from({ length: 240 }, (_, row) => row)
+      : [preferredRow, ...Array.from({ length: 240 }, (_, row) => row).filter((row) => row !== preferredRow)];
+
+  for (const row of rowsToTry) {
+    ensureGridRows(occupied, row + rowSpan, columns);
+    const columnsToTry =
+      preferredColumn === null
+        ? Array.from({ length: columns - columnSpan + 1 }, (_, column) => column)
+        : [
+            preferredColumn,
+            ...Array.from({ length: columns - columnSpan + 1 }, (_, column) => column).filter(
+              (column) => column !== preferredColumn
+            )
+          ];
+
+    for (const column of columnsToTry) {
+      if (!canPlaceGridItem(occupied, column, row, columnSpan, rowSpan)) continue;
+      occupyGridItem(occupied, column, row, columnSpan, rowSpan);
+      return { column, row, columnSpan, rowSpan };
+    }
+  }
+
+  return { column: 0, row: occupied.length, columnSpan, rowSpan };
+}
+
+function ensureGridRows(occupied: boolean[][], rowCount: number, columns: number) {
+  while (occupied.length < rowCount) {
+    occupied.push(Array.from({ length: columns }, () => false));
+  }
+}
+
+function canPlaceGridItem(
+  occupied: boolean[][],
+  column: number,
+  row: number,
+  columnSpan: number,
+  rowSpan: number
+) {
+  for (let rowOffset = 0; rowOffset < rowSpan; rowOffset += 1) {
+    for (let columnOffset = 0; columnOffset < columnSpan; columnOffset += 1) {
+      if (occupied[row + rowOffset]?.[column + columnOffset]) return false;
+    }
+  }
+  return true;
+}
+
+function occupyGridItem(occupied: boolean[][], column: number, row: number, columnSpan: number, rowSpan: number) {
+  for (let rowOffset = 0; rowOffset < rowSpan; rowOffset += 1) {
+    for (let columnOffset = 0; columnOffset < columnSpan; columnOffset += 1) {
+      occupied[row + rowOffset][column + columnOffset] = true;
+    }
+  }
+}
+
+export function getPublicBlockPlacementStyle(
+  block: Block,
+  compacted?: Partial<Record<LayoutDevice, CSSProperties>>
+): CSSProperties & Record<string, string | number | undefined> {
+  const mobileColumnStart = compacted?.mobile?.gridColumnStart ?? getBlockColumnStart(block, "mobile");
+  const desktopColumnStart = compacted?.desktop?.gridColumnStart ?? getBlockColumnStart(block, "desktop");
+  const mobileRowStart = compacted?.mobile?.gridRowStart ?? getBlockRowStart(block, "mobile");
+  const desktopRowStart = compacted?.desktop?.gridRowStart ?? getBlockRowStart(block, "desktop");
   return {
     "--block-mobile-column-start": mobileColumnStart,
     "--block-desktop-column-start": desktopColumnStart,

@@ -21,6 +21,7 @@ This document records the current admin editor behavior and the main implementat
 - Public and admin block grids use a 12-column CSS grid, but editor placement is interpreted as a simpler logical grid: 3 columns on desktop and 2 columns on mobile.
 - Small or partial-width blocks can intentionally sit at the left, center, or right on desktop, or left/right on mobile, without forcing every earlier slot to be filled.
 - Optional per-device placement is stored on the block as `placements.desktop.columnStart` / `placements.desktop.rowStart` and `placements.mobile.columnStart` / `placements.mobile.rowStart`.
+- Before rendering, admin and public block grids compact saved row placements so a completely empty horizontal row does not keep vertical space.
 - Public grid sizing is in `app/globals.css` and `constants/block-layout.ts`.
 - Admin grid sizing uses 12 columns:
   - Desktop small/tall: 4 columns.

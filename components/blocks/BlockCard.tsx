@@ -20,6 +20,7 @@ export function BlockCard({
   disableActions = false,
   disableHoverReveal = false,
   withLayout = true,
+  layoutStyle,
   className
 }: {
   block: Block;
@@ -27,6 +28,7 @@ export function BlockCard({
   disableActions?: boolean;
   disableHoverReveal?: boolean;
   withLayout?: boolean;
+  layoutStyle?: React.CSSProperties & Record<string, string | number | undefined>;
   className?: string;
 }) {
   const [previewOpen, setPreviewOpen] = useState(false);
@@ -73,7 +75,7 @@ export function BlockCard({
         style={{
           backgroundColor: block.backgroundColor || "var(--site-card)",
           color: block.textColor || "var(--site-text)",
-          ...(withLayout && !compact ? getPublicBlockPlacementStyle(block) : {})
+          ...(withLayout && !compact ? layoutStyle ?? getPublicBlockPlacementStyle(block) : {})
         }}
         className={cn(
           "group relative overflow-hidden rounded-[20px] border border-[var(--site-border)] p-4 shadow-soft transition",

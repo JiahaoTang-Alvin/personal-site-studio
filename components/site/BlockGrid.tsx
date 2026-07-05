@@ -2,7 +2,7 @@ import type { CSSProperties } from "react";
 import type { Block } from "@/types/block";
 import type { SectionGap, SectionLayout } from "@/types/section";
 import { cn } from "@/lib/utils";
-import { blockGridClass } from "@/constants/block-layout";
+import { blockGridClass, getCompactedBlockGridStyles, getPublicBlockPlacementStyle } from "@/constants/block-layout";
 import { BlockCard } from "@/components/blocks/BlockCard";
 
 const gapClasses: Record<SectionGap, string> = {
@@ -22,13 +22,23 @@ export function BlockGrid({ blocks, layout, gap }: { blocks: Block[]; layout: Se
     return null;
   }
 
+  const mobileStyles = getCompactedBlockGridStyles(blocks.map((block) => ({ id: block.id, block })), "mobile");
+  const desktopStyles = getCompactedBlockGridStyles(blocks.map((block) => ({ id: block.id, block })), "desktop");
+
   return (
     <div
       className={cn(layout === "grid" ? blockGridClass : "grid grid-cols-1", gapClasses[gap])}
       style={{ "--block-grid-gap": gapSizes[gap] } as CSSProperties & { "--block-grid-gap": string }}
     >
       {blocks.map((block) => (
-        <BlockCard key={block.id} block={block} />
+        <BlockCard
+          key={block.id}
+          block={block}
+          layoutStyle={getPublicBlockPlacementStyle(block, {
+            mobile: mobileStyles.get(block.id),
+            desktop: desktopStyles.get(block.id)
+          })}
+        />
       ))}
     </div>
   );
