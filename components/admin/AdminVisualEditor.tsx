@@ -60,7 +60,15 @@ import type { Profile, SocialLink } from "@/types/profile";
 import type { Section } from "@/types/section";
 import type { SiteConfig } from "@/types/site-config";
 import { validateSiteConfig } from "@/lib/validators";
-import { bySortOrder, buildRenderModel, moveBlockToSection, normalizeSortOrder, cn, topLevelBlockSectionId } from "@/lib/utils";
+import {
+  bySortOrder,
+  buildRenderModel,
+  getNextContentSortOrder,
+  normalizeContentFlowConfig,
+  normalizeSortOrder,
+  cn,
+  topLevelBlockSectionId
+} from "@/lib/utils";
 import {
   blockGridClassByDevice,
   blockSizeClassByDevice,
@@ -212,7 +220,7 @@ type EditorContentItem =
   | { id: string; type: "section-preview"; section: Section };
 
 export function AdminVisualEditor({ initialConfig }: { initialConfig: SiteConfig }) {
-  const [config, setConfig] = useState(initialConfig);
+  const [config, setConfig] = useState(() => normalizeContentFlowConfig(initialConfig));
   const [modal, setModal] = useState<ModalState>(null);
   const [isDirty, setIsDirty] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
@@ -380,7 +388,7 @@ export function AdminVisualEditor({ initialConfig }: { initialConfig: SiteConfig
   }
 
   function update(next: SiteConfig) {
-    setConfig(next);
+    setConfig(normalizeContentFlowConfig(next));
     setIsDirty(true);
   }
 
@@ -429,31 +437,34 @@ export function AdminVisualEditor({ initialConfig }: { initialConfig: SiteConfig
       ...config,
       blocks: normalizeBlocks(
         config.blocks.map((block) =>
-          block.id === blockId ? { ...block, ...patch, updatedAt: new Date().toISOString() } : block
+          block.id === blockId ? { ...block, ...patch, sectionId: topLevelBlockSectionId, updatedAt: new Date().toISOString() } : block
         )
       )
     });
   }
 
   function patchBlockSizeForDevice(blockId: string, size: BlockSize) {
-    setConfig((current) => ({
-      ...current,
-      blocks: normalizeBlocks(
-        current.blocks.map((block) =>
-          block.id === blockId
-            ? {
-                ...block,
-                size: block.size,
-                responsiveSizes: {
-                  ...block.responsiveSizes,
-                  [editorDevice]: size
-                },
-                updatedAt: new Date().toISOString()
-              }
-            : block
+    setConfig((current) =>
+      normalizeContentFlowConfig({
+        ...current,
+        blocks: normalizeBlocks(
+          current.blocks.map((block) =>
+            block.id === blockId
+              ? {
+                  ...block,
+                  sectionId: topLevelBlockSectionId,
+                  size: block.size,
+                  responsiveSizes: {
+                    ...block.responsiveSizes,
+                    [editorDevice]: size
+                  },
+                  updatedAt: new Date().toISOString()
+                }
+              : block
+          )
         )
-      )
-    }));
+      })
+    );
     setIsDirty(true);
   }
 
@@ -478,23 +489,17 @@ export function AdminVisualEditor({ initialConfig }: { initialConfig: SiteConfig
 
   function moveBlockWithPlacement(
     blockId: string,
-    targetSectionId: string,
-    targetIndex: number,
+    _targetSectionId: string,
+    _targetIndex: number,
     placement?: BlockPlacementDraft
   ) {
     const activeBlock = config.blocks.find((block) => block.id === blockId);
     if (!activeBlock) return config.blocks;
 
-    if (activeBlock.sectionId === targetSectionId) {
-      return config.blocks.map((block) =>
-        block.id === blockId ? applyBlockPlacement(block, editorDevice, placement) : block
-      );
-    }
-
-    const movedBlocks = moveBlockToSection(config.blocks, blockId, targetSectionId, targetIndex);
-    const stableBlocks = preserveTopLevelSiblingSortOrders(movedBlocks, config.blocks, blockId);
-    return normalizeBlocks(stableBlocks).map((block) =>
-      block.id === blockId ? applyBlockPlacement(block, editorDevice, placement) : block
+    return normalizeBlocks(config.blocks).map((block) =>
+      block.id === blockId
+        ? applyBlockPlacement({ ...block, sectionId: topLevelBlockSectionId, updatedAt: new Date().toISOString() }, editorDevice, placement)
+        : block
     );
   }
 
@@ -595,7 +600,7 @@ export function AdminVisualEditor({ initialConfig }: { initialConfig: SiteConfig
       metadata: {},
       isVisible: true,
       isFeatured: false,
-      sortOrder: config.blocks.filter((block) => block.sectionId === topLevelBlockSectionId).length + 1,
+      sortOrder: getNextContentSortOrder(config),
       createdAt: now,
       updatedAt: now
     };
@@ -604,26 +609,14 @@ export function AdminVisualEditor({ initialConfig }: { initialConfig: SiteConfig
   }
 
   function deleteSection(sectionId: string) {
-    const blockCount = config.blocks.filter((block) => block.sectionId === sectionId).length;
-    if (!window.confirm(blockCount ? `删除这个 Section？下面的 ${blockCount} 个 Block 会变成独立方块。` : "删除这个 Section？")) return;
-
-    const section = config.sections.find((item) => item.id === sectionId);
-    if (!section) return;
+    if (!window.confirm("删除这个文本 Block？")) return;
 
     update({
       ...config,
-      sections: normalizeSortOrder(config.sections.filter((item) => item.id !== sectionId)),
-      blocks: normalizeBlocks(
-        config.blocks.map((block) =>
-          block.sectionId === sectionId ? { ...block, sectionId: topLevelBlockSectionId, updatedAt: new Date().toISOString() } : block
-        )
-      ),
+      sections: config.sections.filter((item) => item.id !== sectionId),
       settings: {
         ...config.settings,
-        topLevelBlocksSortOrder:
-          config.blocks.some((block) => block.sectionId === topLevelBlockSectionId)
-            ? config.settings.topLevelBlocksSortOrder
-            : section.sortOrder
+        topLevelBlocksSortOrder: undefined
       }
     });
     setModal(null);
@@ -640,7 +633,7 @@ export function AdminVisualEditor({ initialConfig }: { initialConfig: SiteConfig
       titleSize: "md",
       layout: "grid",
       gap: "md",
-      sortOrder: config.sections.length + 1,
+      sortOrder: getNextContentSortOrder(config),
       isVisible: true,
       createdAt: now,
       updatedAt: now
@@ -791,7 +784,7 @@ export function AdminVisualEditor({ initialConfig }: { initialConfig: SiteConfig
       );
 
       setIsDirty(true);
-      return {
+      return normalizeContentFlowConfig({
         ...current,
         sections: nextSections,
         blocks: nextBlocks,
@@ -799,7 +792,7 @@ export function AdminVisualEditor({ initialConfig }: { initialConfig: SiteConfig
           ...current.settings,
           topLevelBlocksSortOrder: undefined
         }
-      };
+      });
     });
   }
 
@@ -1221,7 +1214,7 @@ export function AdminVisualEditor({ initialConfig }: { initialConfig: SiteConfig
                           {({ sectionHandleProps, sectionContainerProps }) => (
                             <EditableSection
                               section={item.section}
-                              blocks={renderModel.blocksBySection.get(item.id) ?? []}
+                              blocks={[]}
                               onEditSection={() => setModal({ type: "section", sectionId: item.id })}
                               onDeleteSection={() => deleteSection(item.id)}
                               onEditBlock={(blockId) => setModal({ type: "block", blockId })}
@@ -1346,7 +1339,6 @@ export function AdminVisualEditor({ initialConfig }: { initialConfig: SiteConfig
           {modal.type === "block" ? (
             <BlockModalBody
               block={config.blocks.find((block) => block.id === modal.blockId)}
-              sections={config.sections}
               onPatch={(patch) => patchBlock(modal.blockId, patch)}
             />
           ) : null}
@@ -1585,8 +1577,6 @@ function getContentFlowForSectionMove(renderModel: ReturnType<typeof buildRender
     }
 
     if (item.id === activeSectionId) {
-      const releasedBlocks = renderModel.blocksBySection.get(activeSectionId) ?? [];
-      flowItems.push(...releasedBlocks.map((block) => ({ type: "top-level-block" as const, id: block.id, block })));
       continue;
     }
 
@@ -1846,12 +1836,6 @@ function findAdminBlockElement(blockId: string) {
   );
 }
 
-function findAdminSectionElement(sectionId: string) {
-  return Array.from(document.querySelectorAll<HTMLElement>("[data-admin-section-id]")).find(
-    (element) => element.dataset.adminSectionId === sectionId
-  );
-}
-
 function findAdminSectionHeadingElement(sectionId: string) {
   return Array.from(document.querySelectorAll<HTMLElement>("[data-admin-section-heading-id]")).find(
     (element) => element.dataset.adminSectionHeadingId === sectionId
@@ -1905,10 +1889,7 @@ function getBlockDragPreviewPlacement({
     };
   }
 
-  const pointerTargetSectionId = getTargetSectionIdFromDrag(pointer, dragRect, activeBlock.sectionId);
-  const targetSectionId = pointerTargetSectionId ?? getSourceSectionIdFromDrag(pointer, dragRect, activeBlock.sectionId);
-
-  if (!targetSectionId) return null;
+  const targetSectionId = topLevelBlockSectionId;
 
   const targetBlocks = config.blocks
     .filter((block) => block.sectionId === targetSectionId && block.id !== activeBlock.id)
@@ -1960,20 +1941,6 @@ function getTopLevelContentTargetFromDrag(
   return null;
 }
 
-function getSourceSectionIdFromDrag(pointer: Point | null, dragRect: MeasuredRect | null, sourceSectionId: string) {
-  if (!pointer && !dragRect) return null;
-  const sourceRect = findAdminSectionElement(sourceSectionId)?.getBoundingClientRect() ?? null;
-  if (!sourceRect) return null;
-
-  const intentPoint = getDragIntentPoint(pointer, dragRect);
-  const pointerInside = pointer ? isPointInRect(pointer, sourceRect) : false;
-  const intentInside = intentPoint ? isPointInRect(intentPoint, sourceRect) : false;
-  const overlapArea = dragRect ? getRectIntersectionArea(dragRect, sourceRect) : 0;
-  const dragArea = dragRect ? dragRect.width * dragRect.height : 0;
-  const overlapRatio = dragArea > 0 ? overlapArea / dragArea : 0;
-  return pointerInside || intentInside || overlapRatio >= 0.08 ? sourceSectionId : null;
-}
-
 function getPlacementFromDrag({
   sectionId,
   block,
@@ -1987,7 +1954,7 @@ function getPlacementFromDrag({
   dragRect: MeasuredRect | null;
   device: LayoutDevice;
 }): BlockPlacementDraft | undefined {
-  const metrics = getAdminSectionGridMetrics(sectionId, device);
+  const metrics = getAdminSectionGridMetrics(sectionId, device, pointer, dragRect);
   if (!metrics || (!pointer && !dragRect)) return undefined;
 
   const size = getBlockSize(block, device);
@@ -2005,42 +1972,6 @@ function getPlacementFromDrag({
   const rowStart = clamp(Math.round((anchorY - metrics.rect.top) / logicalRowUnit) + 1, 1, 240);
 
   return { columnStart, rowStart };
-}
-
-function getTargetSectionIdFromDrag(pointer: Point | null, dragRect: MeasuredRect | null, sourceSectionId: string) {
-  if (!pointer && !dragRect) return null;
-
-  const intentPoint = getDragIntentPoint(pointer, dragRect);
-  const sourceRect = findAdminSectionElement(sourceSectionId)?.getBoundingClientRect() ?? null;
-  if (sourceRect && intentPoint && isPointInRect(intentPoint, sourceRect)) {
-    return null;
-  }
-
-  const candidates = Array.from(document.querySelectorAll<HTMLElement>("[data-admin-section-id]"))
-    .map((element) => {
-      const sectionId = element.dataset.adminSectionId;
-      if (!sectionId || sectionId === sourceSectionId) return null;
-      const rect = element.getBoundingClientRect();
-      const pointerInside = pointer ? isPointInRect(pointer, rect) : false;
-      const intentInside = intentPoint ? isPointInRect(intentPoint, rect) : false;
-      const overlapArea = dragRect ? getRectIntersectionArea(dragRect, rect) : 0;
-      const dragArea = dragRect ? dragRect.width * dragRect.height : 0;
-      const overlapRatio = dragArea > 0 ? overlapArea / dragArea : 0;
-      return {
-        sectionId,
-        overlapArea,
-        overlapRatio,
-        isReachable: pointerInside || intentInside || overlapRatio >= 0.2
-      };
-    })
-    .filter((candidate): candidate is NonNullable<typeof candidate> => candidate !== null && candidate.isReachable)
-    .sort((a, b) => {
-      if (Math.abs(a.overlapArea - b.overlapArea) > 1) return b.overlapArea - a.overlapArea;
-      return b.overlapRatio - a.overlapRatio;
-    });
-
-  const reachable = candidates.find((candidate) => candidate.isReachable);
-  return reachable?.sectionId ?? null;
 }
 
 function getDragIntentPoint(pointer: Point | null, dragRect: MeasuredRect | null): Point | null {
@@ -2091,7 +2022,7 @@ function getSimulatedGridInsertionIndex(
   targetSectionId: string,
   device: LayoutDevice
 ) {
-  const metrics = getAdminSectionGridMetrics(targetSectionId, device);
+  const metrics = getAdminSectionGridMetrics(targetSectionId, device, pointer, dragRect);
   if (!metrics) return null;
 
   let bestCandidate: { index: number; score: number } | null = null;
@@ -2111,8 +2042,13 @@ function getSimulatedGridInsertionIndex(
   return bestCandidate?.index ?? null;
 }
 
-function getAdminSectionGridMetrics(sectionId: string, device: LayoutDevice): GridMetrics | null {
-  const gridElement = findAdminSectionGridElement(sectionId);
+function getAdminSectionGridMetrics(
+  sectionId: string,
+  device: LayoutDevice,
+  pointer?: Point | null,
+  dragRect?: MeasuredRect | null
+): GridMetrics | null {
+  const gridElement = findAdminSectionGridElement(sectionId, pointer, dragRect);
   if (!gridElement) return null;
 
   const rect = gridElement.getBoundingClientRect();
@@ -2287,10 +2223,21 @@ function getDragRectToPlacementScore(dragRect: MeasuredRect, placementRect: Meas
   return leftDistance * 3 + topDistance * 2 + centerDistance * 0.12 - overlapRatio * 120;
 }
 
-function findAdminSectionGridElement(sectionId: string) {
-  return Array.from(document.querySelectorAll<HTMLElement>("[data-admin-section-grid-id]")).find(
+function findAdminSectionGridElement(sectionId: string, pointer?: Point | null, dragRect?: MeasuredRect | null) {
+  const candidates = Array.from(document.querySelectorAll<HTMLElement>("[data-admin-section-grid-id]")).filter(
     (element) => element.dataset.adminSectionGridId === sectionId
   );
+  if (candidates.length <= 1) return candidates[0] ?? null;
+
+  const intentPoint = getDragIntentPoint(pointer ?? null, dragRect ?? null) ?? pointer ?? null;
+  if (!intentPoint) return candidates[0] ?? null;
+
+  return candidates
+    .map((element) => {
+      const rect = element.getBoundingClientRect();
+      return { element, score: getDistanceToRect(intentPoint, rect) };
+    })
+    .sort((a, b) => a.score - b.score)[0]?.element ?? null;
 }
 
 function getAxisDistance(value: number, start: number, end: number) {
@@ -3361,15 +3308,13 @@ function SectionQuickForm({ section, onPatch }: { section?: Section; onPatch: (p
 
 function BlockModalBody({
   block,
-  sections,
   onPatch
 }: {
   block?: Block;
-  sections: Section[];
   onPatch: (patch: Partial<Block>) => void;
 }) {
   if (!block) return null;
-  return <BlockForm block={block} sections={sections} onPatch={onPatch} />;
+  return <BlockForm block={block} onPatch={onPatch} />;
 }
 
 function AddBlockDialog({ onAdd }: { onAdd: (template: (typeof blockTemplates)[number]["items"][number]) => void }) {
@@ -3531,36 +3476,7 @@ function ProjectSettingsForm({
 }
 
 function normalizeBlocks(blocks: Block[]) {
-  const bySection = new Map<string, Block[]>();
-  for (const block of blocks) {
-    bySection.set(block.sectionId, [...(bySection.get(block.sectionId) ?? []), block]);
-  }
-  const normalized = new Map<string, Block>();
-  for (const [sectionId, sectionBlocks] of bySection.entries()) {
-    const sortedBlocks = sectionBlocks.sort(bySortOrder);
-    const nextBlocks = sectionId === topLevelBlockSectionId ? sortedBlocks : normalizeSortOrder(sortedBlocks);
-    for (const block of nextBlocks) {
-      normalized.set(block.id, { ...block, sectionId });
-    }
-  }
-  return blocks.map((block) => normalized.get(block.id) ?? block);
-}
-
-function preserveTopLevelSiblingSortOrders(nextBlocks: Block[], previousBlocks: Block[], activeBlockId: string) {
-  const previousSortOrderById = new Map(
-    previousBlocks
-      .filter((block) => block.id !== activeBlockId && block.sectionId === topLevelBlockSectionId)
-      .map((block) => [block.id, block.sortOrder])
-  );
-
-  return nextBlocks.map((block) => {
-    const previousSortOrder = previousSortOrderById.get(block.id);
-    if (block.sectionId !== topLevelBlockSectionId || previousSortOrder === undefined) {
-      return block;
-    }
-
-    return { ...block, sortOrder: previousSortOrder };
-  });
+  return blocks.map((block) => ({ ...block, sectionId: topLevelBlockSectionId }));
 }
 
 function modalTitle(modal: NonNullable<ModalState>) {

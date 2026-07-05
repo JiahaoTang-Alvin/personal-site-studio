@@ -1,4 +1,5 @@
 import type { SiteConfig } from "@/types/site-config";
+import { topLevelBlockSectionId } from "@/lib/utils";
 
 const now = "2026-07-03T00:00:00.000Z";
 
@@ -77,7 +78,7 @@ export const defaultSiteConfig: SiteConfig = {
       titleSize: "md",
       layout: "grid",
       gap: "md",
-      sortOrder: 2,
+      sortOrder: 4,
       isVisible: true,
       createdAt: now,
       updatedAt: now
@@ -91,7 +92,7 @@ export const defaultSiteConfig: SiteConfig = {
       titleSize: "md",
       layout: "grid",
       gap: "md",
-      sortOrder: 3,
+      sortOrder: 6,
       isVisible: true,
       createdAt: now,
       updatedAt: now
@@ -100,7 +101,7 @@ export const defaultSiteConfig: SiteConfig = {
   blocks: [
     {
       id: "flagship-project",
-      sectionId: "doing",
+      sectionId: topLevelBlockSectionId,
       title: "Flagship project",
       subtitle: "A product or case study",
       description: "Use this block for your main app, startup, portfolio case, or open-source project.",
@@ -117,13 +118,13 @@ export const defaultSiteConfig: SiteConfig = {
       metadata: {},
       isVisible: true,
       isFeatured: true,
-      sortOrder: 1,
+      sortOrder: 2,
       createdAt: now,
       updatedAt: now
     },
     {
       id: "health-trip",
-      sectionId: "doing",
+      sectionId: topLevelBlockSectionId,
       title: "Side project",
       subtitle: "An experiment or prototype",
       description: "Use this card for a smaller project, design exploration, or work in progress.",
@@ -140,13 +141,13 @@ export const defaultSiteConfig: SiteConfig = {
       metadata: {},
       isVisible: true,
       isFeatured: false,
-      sortOrder: 2,
+      sortOrder: 3,
       createdAt: now,
       updatedAt: now
     },
     {
       id: "daily-note",
-      sectionId: "daily",
+      sectionId: topLevelBlockSectionId,
       title: "Latest note",
       subtitle: "What are you working on right now?",
       description: "Share a short update, announcement, or personal note.",
@@ -163,13 +164,13 @@ export const defaultSiteConfig: SiteConfig = {
       metadata: {},
       isVisible: true,
       isFeatured: false,
-      sortOrder: 1,
+      sortOrder: 5,
       createdAt: now,
       updatedAt: now
     },
     {
       id: "github",
-      sectionId: "social",
+      sectionId: topLevelBlockSectionId,
       title: "GitHub",
       subtitle: "@your-handle",
       description: "",
@@ -186,7 +187,7 @@ export const defaultSiteConfig: SiteConfig = {
       metadata: {},
       isVisible: true,
       isFeatured: false,
-      sortOrder: 1,
+      sortOrder: 7,
       createdAt: now,
       updatedAt: now
     }

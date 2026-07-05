@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { BlobTokenMissingError, writeConfigToBlob } from "@/lib/blob-config";
 import { getCurrentSessionIsValid } from "@/lib/auth";
 import { getSiteConfig } from "@/lib/site-config";
+import { normalizeContentFlowConfig } from "@/lib/utils";
 import { validateSiteConfig } from "@/lib/validators";
 
 export async function GET() {
@@ -23,7 +24,7 @@ export async function PUT(request: Request) {
     return NextResponse.json({ error: result.error }, { status: 400 });
   }
 
-  const updatedConfig = { ...result.data, updatedAt: new Date().toISOString() };
+  const updatedConfig = normalizeContentFlowConfig({ ...result.data, updatedAt: new Date().toISOString() });
 
   try {
     await writeConfigToBlob(updatedConfig);

@@ -1,5 +1,6 @@
 import { readConfigFromBlob } from "@/lib/blob-config";
 import { defaultSiteConfig } from "@/lib/default-site-config";
+import { normalizeContentFlowConfig } from "@/lib/utils";
 import type { SiteConfig } from "@/types/site-config";
 
 export async function getSiteConfig() {
@@ -8,11 +9,11 @@ export async function getSiteConfig() {
 }
 
 function normalizeSiteConfig(config: SiteConfig): SiteConfig {
-  return {
+  return normalizeContentFlowConfig({
     ...config,
     settings: {
       ...defaultSiteConfig.settings,
       ...config.settings
     }
-  };
+  });
 }

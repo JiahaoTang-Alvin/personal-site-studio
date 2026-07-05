@@ -26,6 +26,8 @@ Do not normalize top-level block `sortOrder` as if it were section-local order. 
 
 Block cards should be able to move before or after a text section on the shared content axis. The editor should not force a block into the grid below a section just because the pointer is near that section.
 
+All block cards must be stored as top-level cards. If an older config has `block.sectionId` pointing at a section, normalize it into the shared content flow and rewrite the block to `__top_level__`; do not preserve section-owned card groups.
+
 Do not reintroduce visible blank sections as placeholders. If blocks are detached from a section, make them top-level blocks.
 
 ## Main Files

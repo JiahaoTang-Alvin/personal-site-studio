@@ -1,12 +1,9 @@
 "use client";
 
 import type { Block, BlockActionType, BlockType } from "@/types/block";
-import type { Section } from "@/types/section";
 import { blockActionTypes } from "@/constants/block-types";
-import { Button } from "@/components/ui/button";
 import { Checkbox, Field, Input, Select, Textarea } from "@/components/ui/field";
 import { ImageCropUploader } from "@/components/admin/ImageCropUploader";
-import { topLevelBlockSectionId } from "@/lib/utils";
 
 const iconPresets = ["link", "github", "twitter", "instagram", "youtube", "linkedin", "website", "activity", "map", "chef-hat"];
 const blockTypeLabels: Record<BlockType, string> = {
@@ -29,11 +26,9 @@ const actionTypeLabels: Record<BlockActionType, string> = {
 
 export function BlockForm({
   block,
-  sections,
   onPatch
 }: {
   block: Block;
-  sections: Section[];
   onPatch: (patch: Partial<Block>) => void;
 }) {
   const copyText = typeof block.metadata?.copyText === "string" ? block.metadata.copyText : "";
@@ -82,19 +77,6 @@ export function BlockForm({
         </Field>
 
         <div className="grid gap-3 md:grid-cols-2">
-          <Field label="分区/section">
-            <Select
-              value={block.sectionId}
-              onChange={(event) => onPatch({ sectionId: event.target.value })}
-            >
-              <option value={topLevelBlockSectionId}>不属于任何 Section / top-level</option>
-              {sections.map((section) => (
-                <option key={section.id} value={section.id}>
-                  {section.title.trim() || "未命名 Section"}
-                </option>
-              ))}
-            </Select>
-          </Field>
           <Field label="类型/type">
             <Select value={block.type} onChange={(event) => onPatch({ type: event.target.value as BlockType })}>
               {(Object.keys(blockTypeLabels) as BlockType[]).map((type) => (

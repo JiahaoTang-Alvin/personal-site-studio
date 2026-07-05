@@ -46,6 +46,7 @@ This document records the current admin editor behavior and the main implementat
 
 - Sections behave as text-shaped blocks, not containers that own block cards.
 - Block cards can be top-level items by using the internal `__top_level__` section id; these blocks do not belong to any section.
+- Saved, imported, and default configs are normalized so every block card uses `sectionId: "__top_level__"`. Older configs that had cards under a section are migrated into the shared content flow immediately after that text-shaped section.
 - The top-level block grid and text sections share one vertical content-order axis, so a text section can be moved above or below the top-level block grid.
 - Top-level block cards keep their own `sortOrder` on the shared content axis; they are not represented by a visible or editable blank section.
 - Dragging a block near a section title inserts it before or after that text-shaped section on the shared content axis. This lets a square block move above a text section instead of being forced into the section's block grid.

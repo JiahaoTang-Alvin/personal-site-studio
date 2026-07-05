@@ -8,7 +8,6 @@ import { ProfilePanel } from "@/components/site/ProfilePanel";
 type RenderModel = {
   profile: SiteConfig["profile"];
   orderedSections: Section[];
-  blocksBySection: Map<string, Block[]>;
   topLevelBlocks: Block[];
   orderedContentItems: ContentOrderItem[];
 };
@@ -33,7 +32,6 @@ export function SiteLayout({ config, renderModel }: { config: SiteConfig; render
         <ProfilePanel profile={renderModel.profile} />
         <ContentArea
           sections={renderModel.orderedSections}
-          blocksBySection={renderModel.blocksBySection}
           topLevelBlocks={renderModel.topLevelBlocks}
           orderedContentItems={renderModel.orderedContentItems}
         />

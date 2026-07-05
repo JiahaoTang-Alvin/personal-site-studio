@@ -1,7 +1,5 @@
-import type { Block } from "@/types/block";
 import type { Section } from "@/types/section";
 import { cn } from "@/lib/utils";
-import { BlockGrid } from "@/components/site/BlockGrid";
 
 const titleSize = {
   sm: "text-lg",
@@ -15,9 +13,9 @@ const align = {
   right: "text-right"
 };
 
-export function SectionGroup({ section, blocks }: { section: Section; blocks: Block[] }) {
+export function SectionGroup({ section }: { section: Section }) {
   const hasHeading = Boolean(section.title.trim() || section.emoji || section.description);
-  if (!hasHeading && blocks.length === 0) return null;
+  if (!hasHeading) return null;
 
   return (
     <section className="grid gap-6">
@@ -30,7 +28,6 @@ export function SectionGroup({ section, blocks }: { section: Section; blocks: Bl
           {section.description ? <p className="text-sm leading-6 text-[#64748B]">{section.description}</p> : null}
         </div>
       ) : null}
-      {blocks.length > 0 ? <BlockGrid blocks={blocks} layout={section.layout} gap={section.gap} /> : null}
     </section>
   );
 }

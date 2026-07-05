@@ -6,12 +6,10 @@ import { SectionGroup } from "@/components/site/SectionGroup";
 
 export function ContentArea({
   sections,
-  blocksBySection,
   topLevelBlocks = [],
   orderedContentItems
 }: {
   sections: Section[];
-  blocksBySection: Map<string, Block[]>;
   topLevelBlocks?: Block[];
   orderedContentItems?: ContentOrderItem[];
 }) {
@@ -28,7 +26,7 @@ export function ContentArea({
         item.type === "top-level-blocks" ? (
           item.blocks.length > 0 ? <BlockGrid key={item.id} blocks={item.blocks} layout="grid" gap="md" /> : null
         ) : (
-          <SectionGroup key={item.id} section={item.section} blocks={blocksBySection.get(item.id) ?? []} />
+          <SectionGroup key={item.id} section={item.section} />
         )
       )}
     </section>

@@ -22,35 +22,86 @@ export type ContentOrderItem =
   | { id: string; type: "top-level-blocks"; blocks: Block[]; sortOrder: number }
   | { id: string; type: "section"; section: Section; sortOrder: number };
 
+type ContentFlowNode =
+  | { type: "section"; section: Section; sortOrder: number; tieOrder: number; itemOrder: number }
+  | { type: "block"; block: Block; sortOrder: number; tieOrder: number; itemOrder: number };
+
+export function getNextContentSortOrder(config: SiteConfig) {
+  return Math.max(0, ...config.sections.map((section) => section.sortOrder), ...config.blocks.map((block) => block.sortOrder)) + 1;
+}
+
+export function normalizeContentFlowConfig(config: SiteConfig): SiteConfig {
+  const sectionById = new Map(config.sections.map((section) => [section.id, section]));
+  const contentNodes: ContentFlowNode[] = [
+    ...config.sections.map((section, index) => ({
+      type: "section" as const,
+      section,
+      sortOrder: section.sortOrder,
+      tieOrder: 1,
+      itemOrder: index
+    })),
+    ...config.blocks.map((block, index) => {
+      const parentSection = sectionById.get(block.sectionId);
+      const isLegacySectionBlock = block.sectionId !== topLevelBlockSectionId && parentSection;
+
+      return {
+        type: "block" as const,
+        block,
+        sortOrder: isLegacySectionBlock ? parentSection.sortOrder : block.sortOrder,
+        tieOrder: isLegacySectionBlock ? 2 : 0,
+        itemOrder: isLegacySectionBlock ? block.sortOrder : index
+      };
+    })
+  ].sort((a, b) => {
+    if (a.sortOrder !== b.sortOrder) return a.sortOrder - b.sortOrder;
+    if (a.tieOrder !== b.tieOrder) return a.tieOrder - b.tieOrder;
+    return a.itemOrder - b.itemOrder;
+  });
+
+  const sectionSortOrderById = new Map<string, number>();
+  const blockSortOrderById = new Map<string, number>();
+  contentNodes.forEach((item, index) => {
+    if (item.type === "section") {
+      sectionSortOrderById.set(item.section.id, index + 1);
+    } else {
+      blockSortOrderById.set(item.block.id, index + 1);
+    }
+  });
+
+  return {
+    ...config,
+    sections: config.sections.map((section) => ({
+      ...section,
+      sortOrder: sectionSortOrderById.get(section.id) ?? section.sortOrder
+    })),
+    blocks: config.blocks.map((block) => ({
+      ...block,
+      sectionId: topLevelBlockSectionId,
+      sortOrder: blockSortOrderById.get(block.id) ?? block.sortOrder
+    })),
+    settings: {
+      ...config.settings,
+      topLevelBlocksSortOrder: undefined
+    }
+  };
+}
+
 export function buildRenderModel(config: SiteConfig): {
   profile: SiteConfig["profile"];
   orderedSections: Section[];
-  blocksBySection: Map<string, Block[]>;
   topLevelBlocks: Block[];
   orderedContentItems: ContentOrderItem[];
 } {
-  const orderedSections = [...config.sections].filter((section) => section.isVisible).sort(bySortOrder);
-  const sectionIds = new Set(orderedSections.map((section) => section.id));
-  const blocksBySection = new Map<string, Block[]>();
+  const normalizedConfig = normalizeContentFlowConfig(config);
+  const orderedSections = [...normalizedConfig.sections].filter((section) => section.isVisible).sort(bySortOrder);
   const topLevelBlocks: Block[] = [];
 
-  for (const block of config.blocks) {
+  for (const block of normalizedConfig.blocks) {
     if (!block.isVisible) {
       continue;
     }
 
-    if (block.sectionId === topLevelBlockSectionId || !sectionIds.has(block.sectionId)) {
-      topLevelBlocks.push(block);
-      continue;
-    }
-
-    const blocks = blocksBySection.get(block.sectionId) ?? [];
-    blocks.push(block);
-    blocksBySection.set(block.sectionId, blocks);
-  }
-
-  for (const [sectionId, blocks] of blocksBySection.entries()) {
-    blocksBySection.set(sectionId, [...blocks].sort(bySortOrder));
+    topLevelBlocks.push(block);
   }
 
   const contentSourceItems = [
@@ -85,48 +136,7 @@ export function buildRenderModel(config: SiteConfig): {
   return {
     profile: config.profile,
     orderedSections,
-    blocksBySection,
     topLevelBlocks: [...topLevelBlocks].sort(bySortOrder),
     orderedContentItems
   };
-}
-
-export function moveBlockToSection(
-  blocks: Block[],
-  blockId: string,
-  targetSectionId: string,
-  targetIndex: number
-): Block[] {
-  const moving = blocks.find((block) => block.id === blockId);
-  if (!moving) {
-    return blocks;
-  }
-
-  const sourceSectionId = moving.sectionId;
-  const withoutMoving = blocks.filter((block) => block.id !== blockId);
-  const targetBlocks = withoutMoving
-    .filter((block) => block.sectionId === targetSectionId)
-    .sort(bySortOrder);
-  const boundedIndex = Math.max(0, Math.min(targetIndex, targetBlocks.length));
-  targetBlocks.splice(boundedIndex, 0, { ...moving, sectionId: targetSectionId });
-
-  return blocks.map((block) => {
-    if (block.id === blockId) {
-      const moved = normalizeSortOrder(targetBlocks).find((item) => item.id === blockId);
-      return moved ?? block;
-    }
-
-    if (block.sectionId === targetSectionId) {
-      return normalizeSortOrder(targetBlocks).find((item) => item.id === block.id) ?? block;
-    }
-
-    if (block.sectionId === sourceSectionId) {
-      const sourceBlocks = normalizeSortOrder(
-        withoutMoving.filter((item) => item.sectionId === sourceSectionId).sort(bySortOrder)
-      );
-      return sourceBlocks.find((item) => item.id === block.id) ?? block;
-    }
-
-    return block;
-  });
 }
