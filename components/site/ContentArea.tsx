@@ -23,7 +23,7 @@ export function ContentArea({
     ];
 
   return (
-    <section className="content-grid-container grid min-w-0 gap-8">
+    <section className="content-grid-container grid min-w-0 gap-6">
       {contentItems.map((item) =>
         item.type === "top-level-blocks" ? (
           item.blocks.length > 0 ? <BlockGrid key={item.id} blocks={item.blocks} layout="grid" gap="md" /> : null

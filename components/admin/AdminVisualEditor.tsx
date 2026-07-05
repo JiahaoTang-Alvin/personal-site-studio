@@ -161,6 +161,7 @@ type DragPreviewPlacement = {
   blockId: string;
   targetSectionId: string;
   targetIndex: number;
+  targetContentIndex?: number;
   columnStart?: number;
   rowStart?: number;
 };
@@ -206,6 +207,7 @@ type SectionDragPreview = {
 
 type EditorContentItem =
   | { id: string; type: "top-level-blocks"; blocks: Block[]; sortOrder: number }
+  | { id: string; type: "top-level-block-preview"; sortOrder: number }
   | { id: string; type: "section"; section: Section; sortOrder: number }
   | { id: string; type: "section-preview"; section: Section };
 
@@ -293,8 +295,8 @@ export function AdminVisualEditor({ initialConfig }: { initialConfig: SiteConfig
     [activeDragSectionId, config.sections]
   );
   const editorContentItems = useMemo(
-    () => getEditorContentItems(renderModel, sectionDragPreview, activeDragSection),
-    [activeDragSection, renderModel, sectionDragPreview]
+    () => getEditorContentItems(renderModel, sectionDragPreview, activeDragSection, dragPreviewPlacement, activeDragBlock),
+    [activeDragBlock, activeDragSection, dragPreviewPlacement, renderModel, sectionDragPreview]
   );
   const topLevelSection = useMemo<Section>(
     () => ({
@@ -494,6 +496,76 @@ export function AdminVisualEditor({ initialConfig }: { initialConfig: SiteConfig
     return normalizeBlocks(stableBlocks).map((block) =>
       block.id === blockId ? applyBlockPlacement(block, editorDevice, placement) : block
     );
+  }
+
+  function moveBlockToContentIndex(
+    blockId: string,
+    targetContentIndex: number,
+    placement?: BlockPlacementDraft
+  ): SiteConfig {
+    const activeBlock = config.blocks.find((block) => block.id === blockId);
+    if (!activeBlock) return config;
+
+    const now = new Date().toISOString();
+    const flowItems = getContentFlowForBlockMove(buildRenderModel(config), blockId);
+    const nextItems: ContentFlowItem[] = [...flowItems];
+    nextItems.splice(Math.max(0, Math.min(targetContentIndex, flowItems.length)), 0, {
+      type: "top-level-block",
+      id: blockId,
+      block: activeBlock
+    });
+
+    const sectionSortOrderById = new Map<string, number>();
+    const topLevelBlockSortOrderById = new Map<string, number>();
+    nextItems.forEach((item, index) => {
+      const sortOrder = index + 1;
+      if (item.type === "section") {
+        sectionSortOrderById.set(item.id, sortOrder);
+      } else {
+        topLevelBlockSortOrderById.set(item.id, sortOrder);
+      }
+    });
+
+    return {
+      ...config,
+      sections: config.sections.map((section) =>
+        sectionSortOrderById.has(section.id)
+          ? {
+              ...section,
+              sortOrder: sectionSortOrderById.get(section.id) ?? section.sortOrder
+            }
+          : section
+      ),
+      blocks: normalizeBlocks(
+        config.blocks.map((block) => {
+          if (block.id === blockId) {
+            return applyBlockPlacement(
+              {
+                ...block,
+                sectionId: topLevelBlockSectionId,
+                sortOrder: topLevelBlockSortOrderById.get(block.id) ?? block.sortOrder,
+                updatedAt: now
+              },
+              editorDevice,
+              placement
+            );
+          }
+
+          if (block.sectionId === topLevelBlockSectionId && topLevelBlockSortOrderById.has(block.id)) {
+            return {
+              ...block,
+              sortOrder: topLevelBlockSortOrderById.get(block.id) ?? block.sortOrder
+            };
+          }
+
+          return block;
+        })
+      ),
+      settings: {
+        ...config.settings,
+        topLevelBlocksSortOrder: undefined
+      }
+    };
   }
 
   function deleteBlock(blockId: string) {
@@ -822,6 +894,20 @@ export function AdminVisualEditor({ initialConfig }: { initialConfig: SiteConfig
     if (!activeBlock) return;
 
     if (previewPlacement?.blockId === activeId) {
+      if (
+        previewPlacement.targetSectionId === topLevelBlockSectionId &&
+        previewPlacement.targetContentIndex !== undefined
+      ) {
+        update(
+          moveBlockToContentIndex(
+            activeId,
+            previewPlacement.targetContentIndex,
+            { columnStart: previewPlacement.columnStart, rowStart: previewPlacement.rowStart }
+          )
+        );
+        return;
+      }
+
       update({
         ...config,
         blocks: moveBlockWithPlacement(
@@ -1052,7 +1138,7 @@ export function AdminVisualEditor({ initialConfig }: { initialConfig: SiteConfig
                   onEditTags={() => setModal({ type: "tags" })}
                   onEditSocial={() => setModal({ type: "social" })}
                 />
-                <section className="grid min-w-0 gap-8">
+                <section className="grid min-w-0 gap-2">
                   <SortableContext
                     items={editorContentItems
                       .filter((item) => item.type === "section")
@@ -1089,8 +1175,45 @@ export function AdminVisualEditor({ initialConfig }: { initialConfig: SiteConfig
                             }
                             sectionHandleProps={{}}
                             hideHeader
+                            showDragPreview={
+                              dragPreviewPlacement?.targetSectionId === topLevelBlockSectionId &&
+                              dragPreviewPlacement.targetContentIndex === undefined &&
+                              (editorContentItems.filter((contentItem) => contentItem.type === "top-level-blocks").length === 1 ||
+                                item.blocks.some((block) => block.id === activeDragBlockId))
+                            }
                           />
                         </Fragment>
+                      ) : item.type === "top-level-block-preview" ? (
+                        <EditableSection
+                          key={item.id}
+                          section={topLevelSection}
+                          blocks={[]}
+                          onEditSection={() => undefined}
+                          onDeleteSection={() => undefined}
+                          onEditBlock={(blockId) => setModal({ type: "block", blockId })}
+                          onDeleteBlock={deleteBlock}
+                          onSelectBlock={setSelectedBlockId}
+                          device={editorDevice}
+                          activeDragBlockId={activeDragBlockId}
+                          dragPreviewBlock={activeDragBlock}
+                          dragPreviewPlacement={dragPreviewPlacement}
+                          onResizeBlock={patchBlockSizeForDevice}
+                          onResizePreview={setResizePreviewSize}
+                          resizeDrafts={resizeDrafts}
+                          onResizeDraft={(blockId, size) =>
+                            setResizeDrafts((current) => {
+                              if (!size) {
+                                const next = { ...current };
+                                delete next[blockId];
+                                return next;
+                              }
+                              return { ...current, [blockId]: size };
+                            })
+                          }
+                          sectionHandleProps={{}}
+                          hideHeader
+                          showDragPreview
+                        />
                       ) : item.type === "section-preview" ? (
                         <SectionDropPreview key={item.id} section={item.section} />
                       ) : (
@@ -1123,6 +1246,7 @@ export function AdminVisualEditor({ initialConfig }: { initialConfig: SiteConfig
                               }
                               sectionHandleProps={sectionHandleProps}
                               sectionContainerProps={sectionContainerProps}
+                              showDragPreview={dragPreviewPlacement?.targetSectionId === item.id}
                             />
                           )}
                         </SortableSection>
@@ -1472,11 +1596,46 @@ function getContentFlowForSectionMove(renderModel: ReturnType<typeof buildRender
   return flowItems;
 }
 
+function getContentFlowForBlockMove(renderModel: ReturnType<typeof buildRenderModel>, activeBlockId: string): ContentFlowItem[] {
+  const flowItems: ContentFlowItem[] = [];
+
+  for (const item of renderModel.orderedContentItems) {
+    if (item.type === "top-level-blocks") {
+      flowItems.push(
+        ...item.blocks
+          .filter((block) => block.id !== activeBlockId)
+          .map((block) => ({ type: "top-level-block" as const, id: block.id, block }))
+      );
+      continue;
+    }
+
+    flowItems.push({ type: "section", id: item.id, section: item.section });
+  }
+
+  return flowItems;
+}
+
 function getEditorContentItems(
   renderModel: ReturnType<typeof buildRenderModel>,
   preview: SectionDragPreview | null,
-  activeSection: Section | null
+  activeSection: Section | null,
+  blockPreview: DragPreviewPlacement | null,
+  activeBlock: Block | null
 ): EditorContentItem[] {
+  if (
+    blockPreview?.targetSectionId === topLevelBlockSectionId &&
+    blockPreview.targetContentIndex !== undefined &&
+    activeBlock
+  ) {
+    const flowItems = getContentFlowForBlockMove(renderModel, activeBlock.id);
+    const nextItems: Array<ContentFlowItem | { type: "top-level-block-preview"; id: string }> = [...flowItems];
+    nextItems.splice(Math.max(0, Math.min(blockPreview.targetContentIndex, flowItems.length)), 0, {
+      type: "top-level-block-preview",
+      id: `top-level-block-preview:${activeBlock.id}`
+    });
+    return contentFlowItemsToEditorItems(nextItems);
+  }
+
   if (!preview || !activeSection) {
     return renderModel.orderedContentItems;
   }
@@ -1489,6 +1648,14 @@ function getEditorContentItems(
     section: activeSection
   });
 
+  return contentFlowItemsToEditorItems(nextItems);
+}
+
+function contentFlowItemsToEditorItems(
+  nextItems: Array<
+    ContentFlowItem | { type: "section-preview"; id: string; section: Section } | { type: "top-level-block-preview"; id: string }
+  >
+): EditorContentItem[] {
   const contentItems: EditorContentItem[] = [];
   let pendingBlocks: Block[] = [];
 
@@ -1512,6 +1679,8 @@ function getEditorContentItems(
     flushBlocks();
     if (item.type === "section-preview") {
       contentItems.push(item);
+    } else if (item.type === "top-level-block-preview") {
+      contentItems.push({ id: item.id, type: "top-level-block-preview", sortOrder: 0 });
     } else {
       contentItems.push({ id: item.id, type: "section", section: item.section, sortOrder: item.section.sortOrder });
     }
@@ -1726,6 +1895,16 @@ function getBlockDragPreviewPlacement({
   device: LayoutDevice;
   previousPlacement?: DragPreviewPlacement | null;
 }): DragPreviewPlacement | null {
+  const contentTarget = getTopLevelContentTargetFromDrag(config, activeBlock, pointer, dragRect);
+  if (contentTarget) {
+    return {
+      blockId: activeBlock.id,
+      targetSectionId: topLevelBlockSectionId,
+      targetIndex: 0,
+      targetContentIndex: contentTarget.targetContentIndex
+    };
+  }
+
   const pointerTargetSectionId = getTargetSectionIdFromDrag(pointer, dragRect, activeBlock.sectionId);
   const targetSectionId = pointerTargetSectionId ?? getSourceSectionIdFromDrag(pointer, dragRect, activeBlock.sectionId);
 
@@ -1749,6 +1928,36 @@ function getBlockDragPreviewPlacement({
   const placement = getPlacementFromDrag({ sectionId: targetSectionId, block: activeBlock, pointer, dragRect, device });
 
   return { blockId: activeBlock.id, targetSectionId, targetIndex, ...placement };
+}
+
+function getTopLevelContentTargetFromDrag(
+  config: SiteConfig,
+  activeBlock: Block,
+  pointer: Point | null,
+  dragRect: MeasuredRect | null
+) {
+  const intentPoint = getDragIntentPoint(pointer, dragRect) ?? pointer;
+  if (!intentPoint) return null;
+
+  const flowItems = getContentFlowForBlockMove(buildRenderModel(config), activeBlock.id);
+  for (let index = 0; index < flowItems.length; index += 1) {
+    const item = flowItems[index];
+    if (item.type !== "section") continue;
+
+    const rect = findAdminSectionHeadingElement(item.id)?.getBoundingClientRect();
+    if (!rect) continue;
+
+    const verticalIntentBand = Math.max(20, rect.height * 0.65);
+    const horizontalIntentBand = 96;
+    const isVerticallyNear = intentPoint.y >= rect.top - verticalIntentBand && intentPoint.y <= rect.bottom + verticalIntentBand;
+    const isHorizontallyNear = intentPoint.x >= rect.left - horizontalIntentBand && intentPoint.x <= rect.right + horizontalIntentBand;
+    if (!isVerticallyNear || !isHorizontallyNear) continue;
+
+    const insertAfter = intentPoint.y > rect.top + rect.height / 2;
+    return { targetContentIndex: index + (insertAfter ? 1 : 0) };
+  }
+
+  return null;
 }
 
 function getSourceSectionIdFromDrag(pointer: Point | null, dragRect: MeasuredRect | null, sourceSectionId: string) {
@@ -2192,7 +2401,8 @@ function EditableSection({
   onResizeDraft,
   sectionHandleProps,
   sectionContainerProps,
-  hideHeader = false
+  hideHeader = false,
+  showDragPreview = false
 }: {
   section: Section;
   blocks: Block[];
@@ -2212,16 +2422,18 @@ function EditableSection({
   sectionHandleProps: React.HTMLAttributes<HTMLButtonElement>;
   sectionContainerProps?: React.HTMLAttributes<HTMLDivElement> & { ref?: (node: HTMLDivElement | null) => void };
   hideHeader?: boolean;
+  showDragPreview?: boolean;
 }) {
   const { setNodeRef } = useDroppable({ id: `section:${section.id}` });
   const isSameSectionPreview =
+    showDragPreview &&
     Boolean(dragPreviewBlock) &&
     dragPreviewPlacement?.targetSectionId === section.id &&
     dragPreviewBlock?.sectionId === section.id;
   const renderedBlocks =
     isSameSectionPreview && dragPreviewBlock ? blocks.filter((block) => block.id !== dragPreviewBlock.id) : blocks;
   const previewIndex =
-    dragPreviewBlock && dragPreviewPlacement?.targetSectionId === section.id
+    showDragPreview && dragPreviewBlock && dragPreviewPlacement?.targetSectionId === section.id
       ? Math.max(0, Math.min(dragPreviewPlacement.targetIndex, renderedBlocks.length))
       : null;
   const shouldRenderDropPreview = previewIndex !== null;
@@ -2262,7 +2474,7 @@ function EditableSection({
     <section
       ref={setNodeRef}
       data-admin-section-id={section.id}
-      className="admin-grid-container grid gap-4 rounded-[24px] p-2 transition"
+      className="admin-grid-container grid gap-6 rounded-[24px] p-2 transition"
     >
       {hideHeader ? null : (
         <div

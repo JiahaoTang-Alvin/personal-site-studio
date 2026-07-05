@@ -20,7 +20,7 @@ export function SectionGroup({ section, blocks }: { section: Section; blocks: Bl
   if (!hasHeading && blocks.length === 0) return null;
 
   return (
-    <section className="grid gap-4">
+    <section className="grid gap-6">
       {hasHeading ? (
         <div className={cn("grid gap-1 px-1", align[section.titleAlign])}>
           <h2 className={cn("font-bold tracking-normal", titleSize[section.titleSize])}>

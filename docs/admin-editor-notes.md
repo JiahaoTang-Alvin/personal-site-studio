@@ -48,6 +48,7 @@ This document records the current admin editor behavior and the main implementat
 - Block cards can be top-level items by using the internal `__top_level__` section id; these blocks do not belong to any section.
 - The top-level block grid and text sections share one vertical content-order axis, so a text section can be moved above or below the top-level block grid.
 - Top-level block cards keep their own `sortOrder` on the shared content axis; they are not represented by a visible or editable blank section.
+- Dragging a block near a section title inserts it before or after that text-shaped section on the shared content axis. This lets a square block move above a text section instead of being forced into the section's block grid.
 - Moving a section only moves that section text. Any block cards that were still attached to that section are remapped to top-level blocks instead of moving with the section or attaching to the section that moved up.
 - Deleting a section does not delete the block cards under it. Those blocks are remapped to top-level blocks.
 - Empty sections render as text-only rows; the editor does not create visible blank section placeholders.
@@ -71,10 +72,12 @@ This document records the current admin editor behavior and the main implementat
 - Mobile editor controls show section and block edit/delete buttons directly because hover is not available on touch screens.
 - Dragging a text section shows a neutral gray drag background. Section hover still does not imply that block cards belong inside the section.
 - Drop placeholders set their final grid span immediately and do not animate width or height, which prevents temporary stretching while the target section reflows.
+- Admin content spacing uses one visual rhythm: section shell padding plus the outer content gap matches the heading-to-grid gap, so dragging a text section does not change the apparent distance to nearby block grids.
 - Relevant state and helpers:
   - `activeDragBlockId`
   - `dragOverlayRect`
   - `dragPreviewPlacement`
+  - `targetContentIndex`
   - `getAdminBlockVisualRect`
   - `getCrossSectionInsertionIndex`
   - `getInsertionIndexFromPointer`
