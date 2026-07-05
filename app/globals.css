@@ -90,12 +90,16 @@ select {
   --admin-grid-gap: 1rem;
   --admin-grid-columns: 12;
   --admin-grid-cell-span: 4;
-  grid-template-columns: repeat(var(--admin-grid-columns), minmax(0, 1fr));
-  grid-auto-flow: dense;
-  grid-auto-rows: calc(
-    ((100cqw - (var(--admin-grid-gap) * (var(--admin-grid-columns) - 1))) / var(--admin-grid-columns) * var(--admin-grid-cell-span)) +
+  --admin-grid-column-width: calc(
+    (100cqw - (var(--admin-grid-gap) * (var(--admin-grid-columns) - 1))) / var(--admin-grid-columns)
+  );
+  --admin-grid-row-height: calc(
+    (var(--admin-grid-column-width) * var(--admin-grid-cell-span)) +
       (var(--admin-grid-gap) * (var(--admin-grid-cell-span) - 1))
   );
+  grid-template-columns: repeat(var(--admin-grid-columns), minmax(0, 1fr));
+  grid-auto-flow: dense;
+  grid-auto-rows: var(--admin-grid-row-height);
 }
 
 .admin-block-grid[data-device="mobile"] {

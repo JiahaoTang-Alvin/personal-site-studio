@@ -1961,6 +1961,7 @@ function EditableSection({
                   displaySize={resizeDrafts[block.id]?.size ?? getBlockSize(block, device)}
                   device={device}
                   isDragOverlayActive={activeDragBlockId === block.id}
+                  hideOriginalDuringDrag={activeDragBlockId === block.id && isSameSectionPreview}
                   onEdit={() => onEditBlock(block.id)}
                   onDelete={() => onDeleteBlock(block.id)}
                   onSelect={() => onSelectBlock(block.id)}
@@ -2007,12 +2008,19 @@ function BlockDropPreview({
   const gridSpan = getDefaultGridSpan(displaySize, device);
   const rowSpan = getDefaultRowSpan(displaySize);
   const previewBlock = placement ? { ...block, placements: { ...block.placements, [device]: placement } } : block;
+  const placementStyle = floating
+    ? getFloatingBlockPreviewStyle(previewBlock, device, displaySize)
+    : {
+        ...getAdminBlockGridStyle(previewBlock, device, displaySize),
+        gridColumnEnd: `span ${gridSpan}`,
+        gridRowEnd: `span ${rowSpan}`
+      };
   return (
     <div
-      style={{ ...getAdminBlockGridStyle(previewBlock, device, displaySize), gridColumnEnd: `span ${gridSpan}`, gridRowEnd: `span ${rowSpan}` }}
+      style={placementStyle}
       className={cn(
         "pointer-events-none rounded-[20px] border-2 border-dashed border-[#1479FF]/45 bg-[#EDF6FF]/70",
-        floating ? "absolute z-10 justify-self-stretch self-stretch shadow-[0_16px_45px_rgba(20,121,255,0.12)]" : "",
+        floating ? "absolute z-10 shadow-[0_16px_45px_rgba(20,121,255,0.12)]" : "",
         blockSizeClassByDevice[device][displaySize]
       )}
     >
@@ -2023,11 +2031,25 @@ function BlockDropPreview({
   );
 }
 
+function getFloatingBlockPreviewStyle(block: Block, device: LayoutDevice, size: BlockSize): React.CSSProperties {
+  const columnStart = getBlockColumnStart({ ...block, responsiveSizes: { ...block.responsiveSizes, [device]: size } }, device) ?? 1;
+  const rowStart = getBlockRowStart(block, device) ?? 1;
+  const gridSpan = getDefaultGridSpan(size, device);
+  const rowSpan = getDefaultRowSpan(size);
+  return {
+    left: `calc(${columnStart - 1} * (var(--admin-grid-column-width) + var(--admin-grid-gap)))`,
+    top: `calc(${rowStart - 1} * (var(--admin-grid-row-height) + var(--admin-grid-gap)))`,
+    width: `calc(${gridSpan} * var(--admin-grid-column-width) + ${gridSpan - 1} * var(--admin-grid-gap))`,
+    height: `calc(${rowSpan} * var(--admin-grid-row-height) + ${rowSpan - 1} * var(--admin-grid-gap))`
+  };
+}
+
 function SortableBlock({
   block,
   displaySize,
   device,
   isDragOverlayActive,
+  hideOriginalDuringDrag,
   onEdit,
   onDelete,
   onSelect,
@@ -2039,6 +2061,7 @@ function SortableBlock({
   displaySize: BlockSize;
   device: LayoutDevice;
   isDragOverlayActive: boolean;
+  hideOriginalDuringDrag: boolean;
   onEdit: () => void;
   onDelete: () => void;
   onSelect: () => void;
@@ -2142,7 +2165,7 @@ function SortableBlock({
       className={cn(
         "admin-draggable group relative cursor-grab will-change-transform active:cursor-grabbing transition-all duration-200 ease-out",
         blockSizeClassByDevice[device][activeDisplaySize],
-        isDragging || isDragOverlayActive ? "z-20 opacity-20" : "",
+        hideOriginalDuringDrag ? "z-20 opacity-0" : isDragging || isDragOverlayActive ? "z-20 opacity-20" : "",
         isResizing ? "z-30" : ""
       )}
       onClick={onSelect}
