@@ -63,23 +63,54 @@ export function getDefaultGridSpan(size: BlockSize, device: LayoutDevice) {
   return 12;
 }
 
+export function getLogicalColumnCount(device: LayoutDevice) {
+  return device === "desktop" ? 3 : 2;
+}
+
+export function getLogicalColumnSpan(size: BlockSize, device: LayoutDevice) {
+  const baseSpan = device === "desktop" ? 4 : 6;
+  return getDefaultGridSpan(size, device) / baseSpan;
+}
+
 export function getDefaultRowSpan(size: BlockSize) {
   return size === "large-square" || size === "tall" ? 2 : 1;
 }
 
-export function getBlockColumnStart(block: Block, device: LayoutDevice) {
-  const size = getBlockSize(block, device);
-  const span = getDefaultGridSpan(size, device);
+export function getBlockLogicalColumnStart(block: Block, device: LayoutDevice) {
   const rawColumnStart = block.placements?.[device]?.columnStart;
   if (!rawColumnStart) return undefined;
-  return Math.max(1, Math.min(12 - span + 1, rawColumnStart));
+
+  const size = getBlockSize(block, device);
+  const logicalColumns = getLogicalColumnCount(device);
+  const logicalSpan = getLogicalColumnSpan(size, device);
+  const maxColumnStart = logicalColumns - logicalSpan + 1;
+  const baseSpan = device === "desktop" ? 4 : 6;
+  const logicalColumnStart =
+    rawColumnStart > logicalColumns ? Math.round((rawColumnStart - 1) / baseSpan) + 1 : rawColumnStart;
+
+  return Math.max(1, Math.min(maxColumnStart, logicalColumnStart));
+}
+
+export function getBlockColumnStart(block: Block, device: LayoutDevice) {
+  const logicalColumnStart = getBlockLogicalColumnStart(block, device);
+  if (!logicalColumnStart) return undefined;
+  const baseSpan = device === "desktop" ? 4 : 6;
+  return (logicalColumnStart - 1) * baseSpan + 1;
+}
+
+export function getBlockRowStart(block: Block, device: LayoutDevice) {
+  const rawRowStart = block.placements?.[device]?.rowStart;
+  if (!rawRowStart) return undefined;
+  return Math.max(1, Math.min(240, rawRowStart));
 }
 
 export function getAdminBlockGridStyle(block: Block, device: LayoutDevice, size: BlockSize): CSSProperties {
   const columnStart = getBlockColumnStart({ ...block, responsiveSizes: { ...block.responsiveSizes, [device]: size } }, device);
+  const rowStart = getBlockRowStart(block, device);
   return {
     gridColumnStart: columnStart,
     gridColumnEnd: `span ${getDefaultGridSpan(size, device)}`,
+    gridRowStart: rowStart,
     gridRowEnd: `span ${getDefaultRowSpan(size)}`
   };
 }
@@ -87,8 +118,12 @@ export function getAdminBlockGridStyle(block: Block, device: LayoutDevice, size:
 export function getPublicBlockPlacementStyle(block: Block): CSSProperties & Record<string, string | number | undefined> {
   const mobileColumnStart = getBlockColumnStart(block, "mobile");
   const desktopColumnStart = getBlockColumnStart(block, "desktop");
+  const mobileRowStart = getBlockRowStart(block, "mobile");
+  const desktopRowStart = getBlockRowStart(block, "desktop");
   return {
     "--block-mobile-column-start": mobileColumnStart,
-    "--block-desktop-column-start": desktopColumnStart
+    "--block-desktop-column-start": desktopColumnStart,
+    "--block-mobile-row-start": mobileRowStart,
+    "--block-desktop-row-start": desktopRowStart
   };
 }

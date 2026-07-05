@@ -80,12 +80,14 @@ const blockSchema = z.object({
     .object({
       desktop: z
         .object({
-          columnStart: z.number().int().min(1).max(12).optional()
+          columnStart: z.number().int().min(1).max(12).optional(),
+          rowStart: z.number().int().min(1).max(240).optional()
         })
         .optional(),
       mobile: z
         .object({
-          columnStart: z.number().int().min(1).max(12).optional()
+          columnStart: z.number().int().min(1).max(12).optional(),
+          rowStart: z.number().int().min(1).max(240).optional()
         })
         .optional()
     })

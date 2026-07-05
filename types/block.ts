@@ -12,6 +12,7 @@ export type LayoutDevice = "desktop" | "mobile";
 
 export type BlockPlacement = {
   columnStart?: number;
+  rowStart?: number;
 };
 
 export type BlockActionType =
