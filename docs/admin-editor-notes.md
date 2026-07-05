@@ -18,6 +18,8 @@ This document records the current admin editor behavior and the main implementat
 - A 1x1 square is the base cell.
 - A 2x1 block has the same height as a 1x1 block.
 - A 2x2 block has the height of two rows plus the row gap.
+- Public and admin block grids both use a 12-column logical grid, so small or partial-width blocks can sit at the left, center, or right instead of always filling the first available slot.
+- Optional per-device horizontal placement is stored on the block as `placements.desktop.columnStart` / `placements.mobile.columnStart`.
 - Public grid sizing is in `app/globals.css` and `constants/block-layout.ts`.
 - Admin grid sizing uses 12 columns:
   - Desktop small/tall: 4 columns.
@@ -54,12 +56,14 @@ This document records the current admin editor behavior and the main implementat
 - Block dragging across sections uses a drag overlay plus a temporary target placeholder.
 - The overlay follows the pointer while the real block remains as a faint placeholder at the original location.
 - Cross-section placement is previewed with a same-sized dashed placeholder, which pushes target-section blocks away before drop.
+- Dragging a block also records its horizontal grid column in the active device mode, clamped to the valid range for that block size.
 - Cross-section insertion resolves the target section only after the drag intent point leaves the source section and enters another section's real rectangle. Then it simulates each possible CSS grid insertion slot and chooses the slot closest to the dragged card's projected position. It intentionally does not rely on dnd-kit's `overBlock`, because `overBlock` can be stale or misleading when the pointer is between blocks or when a preview placeholder is present.
 - Pointer location is captured through global `pointermove` / `touchmove` listeners during drag and those listeners actively refresh the preview, because dnd-kit's `over` state can stay unchanged even after the pointer has moved to the intended side.
 - Touch dragging uses a 500ms long press before activation, while mouse dragging still starts after a small movement threshold.
 - Square drag overlays are normalized to a square rect for `small-square` and `large-square`, preventing temporary rectangular stretching during drag.
 - Drag overlays use a dedicated static preview component rather than the full interactive `BlockCard`, so hover states and layout transitions cannot distort the preview while dragging.
 - Mobile editor controls show section and block edit/delete buttons directly because hover is not available on touch screens.
+- Dragging a text section shows a neutral gray drag background. Section hover still does not imply that block cards belong inside the section.
 - Drop placeholders set their final grid span immediately and do not animate width or height, which prevents temporary stretching while the target section reflows.
 - Relevant state and helpers:
   - `activeDragBlockId`

@@ -10,6 +10,10 @@ export type BlockType =
 export type BlockSize = "small-square" | "wide" | "large-square" | "full-wide" | "tall";
 export type LayoutDevice = "desktop" | "mobile";
 
+export type BlockPlacement = {
+  columnStart?: number;
+};
+
 export type BlockActionType =
   | "none"
   | "link"
@@ -27,6 +31,7 @@ export type Block = {
   type: BlockType;
   size: BlockSize;
   responsiveSizes?: Partial<Record<LayoutDevice, BlockSize>>;
+  placements?: Partial<Record<LayoutDevice, BlockPlacement>>;
   coverImage?: string;
   icon?: string;
   badge?: string;

@@ -62,12 +62,25 @@ select {
 
 .block-grid {
   --block-grid-gap: 1rem;
-  grid-auto-rows: calc((100cqw - var(--block-grid-gap)) / 2);
+  --block-grid-columns: 12;
+  --block-grid-cell-span: 6;
+  grid-auto-rows: calc(
+    ((100cqw - (var(--block-grid-gap) * (var(--block-grid-columns) - 1))) / var(--block-grid-columns) * var(--block-grid-cell-span)) +
+      (var(--block-grid-gap) * (var(--block-grid-cell-span) - 1))
+  );
+}
+
+.block-placement {
+  grid-column-start: var(--block-mobile-column-start, auto);
 }
 
 @media (min-width: 768px) {
   .block-grid {
-    grid-auto-rows: calc((100cqw - (var(--block-grid-gap) * 2)) / 3);
+    --block-grid-cell-span: 4;
+  }
+
+  .block-placement {
+    grid-column-start: var(--block-desktop-column-start, auto);
   }
 }
 

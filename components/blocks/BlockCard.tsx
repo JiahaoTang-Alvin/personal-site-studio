@@ -5,7 +5,7 @@ import { useState } from "react";
 import { toast } from "sonner";
 import type { Block } from "@/types/block";
 import { cn } from "@/lib/utils";
-import { getPublicBlockSizeClass } from "@/constants/block-layout";
+import { getPublicBlockPlacementStyle, getPublicBlockSizeClass } from "@/constants/block-layout";
 import { ImageBlock } from "@/components/blocks/ImageBlock";
 import { LinkBlock } from "@/components/blocks/LinkBlock";
 import { ProjectBlock } from "@/components/blocks/ProjectBlock";
@@ -72,7 +72,8 @@ export function BlockCard({
         }}
         style={{
           backgroundColor: block.backgroundColor || "var(--site-card)",
-          color: block.textColor || "var(--site-text)"
+          color: block.textColor || "var(--site-text)",
+          ...(withLayout && !compact ? getPublicBlockPlacementStyle(block) : {})
         }}
         className={cn(
           "group relative overflow-hidden rounded-[20px] border border-[var(--site-border)] p-4 shadow-soft transition",

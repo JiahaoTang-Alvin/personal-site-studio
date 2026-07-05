@@ -76,6 +76,20 @@ const blockSchema = z.object({
       mobile: z.enum(blockSizes as [string, ...string[]]).optional()
     })
     .optional(),
+  placements: z
+    .object({
+      desktop: z
+        .object({
+          columnStart: z.number().int().min(1).max(12).optional()
+        })
+        .optional(),
+      mobile: z
+        .object({
+          columnStart: z.number().int().min(1).max(12).optional()
+        })
+        .optional()
+    })
+    .optional(),
   coverImage: z.string().optional(),
   icon: z.string().optional(),
   badge: z.string().optional(),

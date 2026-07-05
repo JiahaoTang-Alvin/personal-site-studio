@@ -58,7 +58,14 @@ import type { Section } from "@/types/section";
 import type { SiteConfig } from "@/types/site-config";
 import { validateSiteConfig } from "@/lib/validators";
 import { bySortOrder, buildRenderModel, moveBlockToSection, normalizeSortOrder, cn, topLevelBlockSectionId } from "@/lib/utils";
-import { blockGridClassByDevice, blockSizeClassByDevice, getBlockSize } from "@/constants/block-layout";
+import {
+  blockGridClassByDevice,
+  blockSizeClassByDevice,
+  getAdminBlockGridStyle,
+  getBlockSize,
+  getDefaultGridSpan,
+  getDefaultRowSpan
+} from "@/constants/block-layout";
 import { BlockCard } from "@/components/blocks/BlockCard";
 import { BlockForm } from "@/components/admin/BlockForm";
 import { Button } from "@/components/ui/button";
@@ -146,6 +153,7 @@ type DragPreviewPlacement = {
   blockId: string;
   targetSectionId: string;
   targetIndex: number;
+  columnStart?: number;
 };
 
 const topLevelContentOrderId = "section-order:__top_level_blocks__";
@@ -316,7 +324,8 @@ export function AdminVisualEditor({ initialConfig }: { initialConfig: SiteConfig
     if (
       current?.blockId === next?.blockId &&
       current?.targetSectionId === next?.targetSectionId &&
-      current?.targetIndex === next?.targetIndex
+      current?.targetIndex === next?.targetIndex &&
+      current?.columnStart === next?.columnStart
     ) {
       return;
     }
@@ -373,6 +382,27 @@ export function AdminVisualEditor({ initialConfig }: { initialConfig: SiteConfig
       )
     }));
     setIsDirty(true);
+  }
+
+  function applyBlockColumnStart(block: Block, device: LayoutDevice, columnStart?: number): Block {
+    if (!columnStart) return block;
+    return {
+      ...block,
+      placements: {
+        ...block.placements,
+        [device]: {
+          ...block.placements?.[device],
+          columnStart
+        }
+      },
+      updatedAt: new Date().toISOString()
+    };
+  }
+
+  function moveBlockWithPlacement(blockId: string, targetSectionId: string, targetIndex: number, columnStart?: number) {
+    return normalizeBlocks(moveBlockToSection(config.blocks, blockId, targetSectionId, targetIndex)).map((block) =>
+      block.id === blockId ? applyBlockColumnStart(block, editorDevice, columnStart) : block
+    );
   }
 
   function deleteBlock(blockId: string) {
@@ -598,6 +628,8 @@ export function AdminVisualEditor({ initialConfig }: { initialConfig: SiteConfig
 
   function onDragEnd(event: DragEndEvent) {
     const previewPlacement = dragPreviewPlacementRef.current;
+    const finalPointer = dragPointerRef.current;
+    const finalDragRect = getCurrentDragRect();
     const { active, over } = event;
     const activeId = String(active.id);
     setActiveDragBlockId(null);
@@ -624,14 +656,32 @@ export function AdminVisualEditor({ initialConfig }: { initialConfig: SiteConfig
     if (previewPlacement?.blockId === activeId) {
       update({
         ...config,
-        blocks: normalizeBlocks(
-          moveBlockToSection(config.blocks, activeId, previewPlacement.targetSectionId, previewPlacement.targetIndex)
+        blocks: moveBlockWithPlacement(
+          activeId,
+          previewPlacement.targetSectionId,
+          previewPlacement.targetIndex,
+          previewPlacement.columnStart
         )
       });
       return;
     }
 
     if (!over || active.id === over.id) {
+      const columnStart = getColumnStartFromDrag({
+        sectionId: activeBlock.sectionId,
+        block: activeBlock,
+        pointer: finalPointer,
+        dragRect: finalDragRect,
+        device: editorDevice
+      });
+      if (columnStart) {
+        update({
+          ...config,
+          blocks: normalizeBlocks(config.blocks).map((block) =>
+            block.id === activeId ? applyBlockColumnStart(block, editorDevice, columnStart) : block
+          )
+        });
+      }
       return;
     }
     const overId = String(over.id);
@@ -651,7 +701,18 @@ export function AdminVisualEditor({ initialConfig }: { initialConfig: SiteConfig
           ? targetBlocks.findIndex((block) => block.id === overBlock.id)
           : targetBlocks.length;
 
-    update({ ...config, blocks: normalizeBlocks(moveBlockToSection(config.blocks, activeId, targetSectionId, targetIndex)) });
+    const columnStart =
+      previewPlacement?.blockId === activeId && previewPlacement.targetSectionId === targetSectionId
+        ? previewPlacement.columnStart
+        : getColumnStartFromDrag({
+            sectionId: targetSectionId,
+            block: activeBlock,
+            pointer: finalPointer,
+            dragRect: finalDragRect,
+            device: editorDevice
+          });
+
+    update({ ...config, blocks: moveBlockWithPlacement(activeId, targetSectionId, targetIndex, columnStart) });
   }
 
   function onDragCancel() {
@@ -1328,8 +1389,34 @@ function getCrossSectionDragPreviewPlacement({
     (previousPlacement?.blockId === activeBlock.id && previousPlacement.targetSectionId === targetSectionId
       ? previousPlacement.targetIndex
       : targetBlocks.length);
+  const columnStart = getColumnStartFromDrag({ sectionId: targetSectionId, block: activeBlock, pointer, dragRect, device });
 
-  return { blockId: activeBlock.id, targetSectionId, targetIndex };
+  return { blockId: activeBlock.id, targetSectionId, targetIndex, columnStart };
+}
+
+function getColumnStartFromDrag({
+  sectionId,
+  block,
+  pointer,
+  dragRect,
+  device
+}: {
+  sectionId: string;
+  block: Block;
+  pointer: Point | null;
+  dragRect: MeasuredRect | null;
+  device: LayoutDevice;
+}) {
+  const metrics = getAdminSectionGridMetrics(sectionId, device);
+  if (!metrics || (!pointer && !dragRect)) return undefined;
+
+  const size = getBlockSize(block, device);
+  const columnSpan = getDefaultGridSpan(size, device);
+  const maxColumnStart = metrics.columns - columnSpan + 1;
+  const anchorX = dragRect ? dragRect.left : pointer ? pointer.x - getGridItemWidth(columnSpan, metrics) / 2 : metrics.rect.left;
+  const columnUnit = metrics.columnWidth + metrics.columnGap;
+  const rawColumnStart = Math.round((anchorX - metrics.rect.left) / columnUnit) + 1;
+  return clamp(rawColumnStart, 1, maxColumnStart);
 }
 
 function getTargetSectionIdFromDrag(pointer: Point | null, dragRect: MeasuredRect | null, sourceSectionId: string) {
@@ -1471,7 +1558,7 @@ function simulateActiveGridPlacement(
   device: LayoutDevice,
   columns: number
 ) {
-  const sequence: Array<{ columnSpan: number; rowSpan: number; isActive: boolean }> = [];
+  const sequence: Array<{ columnSpan: number; rowSpan: number; columnStart?: number; isActive: boolean }> = [];
 
   targetBlocks.forEach((block, index) => {
     if (index === insertionIndex) {
@@ -1486,7 +1573,7 @@ function simulateActiveGridPlacement(
 
   const occupied: boolean[][] = [];
   for (const item of sequence) {
-    const placement = placeGridItem(occupied, columns, item.columnSpan, item.rowSpan);
+    const placement = placeGridItem(occupied, columns, item.columnSpan, item.rowSpan, item.columnStart);
     if (item.isActive) return placement;
   }
 
@@ -1498,17 +1585,35 @@ function getGridItemShape(block: Block, device: LayoutDevice, isActive: boolean)
   return {
     columnSpan: getDefaultGridSpan(size, device),
     rowSpan: getDefaultRowSpan(size),
+    columnStart: block.placements?.[device]?.columnStart,
     isActive
   };
 }
 
-function placeGridItem(occupied: boolean[][], columns: number, rawColumnSpan: number, rawRowSpan: number): GridPlacement {
+function placeGridItem(
+  occupied: boolean[][],
+  columns: number,
+  rawColumnSpan: number,
+  rawRowSpan: number,
+  rawColumnStart?: number
+): GridPlacement {
   const columnSpan = clamp(rawColumnSpan, 1, columns);
   const rowSpan = Math.max(1, rawRowSpan);
+  const preferredColumn = rawColumnStart ? clamp(rawColumnStart - 1, 0, columns - columnSpan) : null;
 
   for (let row = 0; row < 240; row += 1) {
     ensureGridRows(occupied, row + rowSpan, columns);
-    for (let column = 0; column <= columns - columnSpan; column += 1) {
+    const columnsToTry =
+      preferredColumn === null
+        ? Array.from({ length: columns - columnSpan + 1 }, (_, column) => column)
+        : [
+            preferredColumn,
+            ...Array.from({ length: columns - columnSpan + 1 }, (_, column) => column).filter(
+              (column) => column !== preferredColumn
+            )
+          ];
+
+    for (const column of columnsToTry) {
       if (!canPlaceGridItem(occupied, column, row, columnSpan, rowSpan)) continue;
       occupyGridItem(occupied, column, row, columnSpan, rowSpan);
       return { column, row, columnSpan, rowSpan };
@@ -1550,7 +1655,7 @@ function occupyGridItem(occupied: boolean[][], column: number, row: number, colu
 function getGridPlacementRect(placement: GridPlacement, metrics: GridMetrics): MeasuredRect {
   const left = metrics.rect.left + placement.column * (metrics.columnWidth + metrics.columnGap);
   const top = metrics.rect.top + placement.row * (metrics.rowHeight + metrics.rowGap);
-  const width = placement.columnSpan * metrics.columnWidth + (placement.columnSpan - 1) * metrics.columnGap;
+  const width = getGridItemWidth(placement.columnSpan, metrics);
   const height = placement.rowSpan * metrics.rowHeight + (placement.rowSpan - 1) * metrics.rowGap;
   return {
     left,
@@ -1560,6 +1665,10 @@ function getGridPlacementRect(placement: GridPlacement, metrics: GridMetrics): M
     right: left + width,
     bottom: top + height
   };
+}
+
+function getGridItemWidth(columnSpan: number, metrics: GridMetrics) {
+  return columnSpan * metrics.columnWidth + (columnSpan - 1) * metrics.columnGap;
 }
 
 function getPointerToPlacementScore(pointer: Point, rect: MeasuredRect) {
@@ -1668,7 +1777,10 @@ function SortableSection({
     <div
       ref={setNodeRef}
       style={{ transform: CSS.Transform.toString(transform), transition }}
-      className={isDragging ? "relative z-20 opacity-60" : ""}
+      className={cn(
+        "rounded-[24px] transition-colors duration-150",
+        isDragging ? "relative z-20 bg-[#F3F4F6] shadow-inner opacity-80" : ""
+      )}
     >
       {children({ sectionHandleProps: { ...attributes, ...listeners } as React.HTMLAttributes<HTMLButtonElement> })}
     </div>
@@ -1781,7 +1893,7 @@ function EditableSection({
             {blocks.map((block, index) => (
               <Fragment key={block.id}>
                 {previewIndex === index && dragPreviewBlock ? (
-                  <BlockDropPreview block={dragPreviewBlock} device={device} />
+                  <BlockDropPreview block={dragPreviewBlock} device={device} columnStart={dragPreviewPlacement?.columnStart} />
                 ) : null}
                 <SortableBlock
                   block={block}
@@ -1798,7 +1910,7 @@ function EditableSection({
               </Fragment>
             ))}
             {previewIndex === blocks.length && dragPreviewBlock ? (
-              <BlockDropPreview block={dragPreviewBlock} device={device} />
+              <BlockDropPreview block={dragPreviewBlock} device={device} columnStart={dragPreviewPlacement?.columnStart} />
             ) : null}
           </div>
         </SortableContext>
@@ -1807,13 +1919,13 @@ function EditableSection({
   );
 }
 
-function BlockDropPreview({ block, device }: { block: Block; device: LayoutDevice }) {
+function BlockDropPreview({ block, device, columnStart }: { block: Block; device: LayoutDevice; columnStart?: number }) {
   const displaySize = getBlockSize(block, device);
   const gridSpan = getDefaultGridSpan(displaySize, device);
   const rowSpan = getDefaultRowSpan(displaySize);
   return (
     <div
-      style={{ gridColumnEnd: `span ${gridSpan}`, gridRowEnd: `span ${rowSpan}` }}
+      style={{ gridColumnStart: columnStart, gridColumnEnd: `span ${gridSpan}`, gridRowEnd: `span ${rowSpan}` }}
       className={`pointer-events-none rounded-[20px] border-2 border-dashed border-[#1479FF]/45 bg-[#EDF6FF]/70 ${blockSizeClassByDevice[device][displaySize]}`}
     >
       <div className="grid h-full w-full place-items-center rounded-[18px] bg-white/45 text-xs font-semibold text-[#1479FF]">
@@ -1860,15 +1972,11 @@ function SortableBlock({
     },
     [setNodeRef]
   );
-  const resizeStyle = localResizeDraft
-    ? {
-        gridColumnEnd: `span ${activeGridSpan}`,
-        gridRowEnd: `span ${activeRowSpan}`
-      }
-    : {
-        gridColumnEnd: `span ${activeGridSpan}`,
-        gridRowEnd: `span ${activeRowSpan}`
-      };
+  const resizeStyle = {
+    ...getAdminBlockGridStyle(block, device, activeDisplaySize),
+    gridColumnEnd: `span ${activeGridSpan}`,
+    gridRowEnd: `span ${activeRowSpan}`
+  };
 
   function startResize(event: React.PointerEvent<HTMLButtonElement>) {
     event.preventDefault();
@@ -2161,20 +2269,6 @@ function getPresetFromDraft({
   }
 
   return "full-wide";
-}
-
-function getDefaultGridSpan(size: BlockSize, device: LayoutDevice) {
-  if (device === "mobile") {
-    return size === "small-square" || size === "tall" ? 6 : 12;
-  }
-  if (size === "small-square" || size === "tall") return 4;
-  if (size === "wide") return 8;
-  if (size === "large-square") return 8;
-  return 12;
-}
-
-function getDefaultRowSpan(size: BlockSize) {
-  return size === "large-square" || size === "tall" ? 2 : 1;
 }
 
 function clamp(value: number, min: number, max: number) {
