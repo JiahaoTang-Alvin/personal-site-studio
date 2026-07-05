@@ -1509,7 +1509,7 @@ function getSectionContentTargetIndex(flowItems: ContentFlowItem[], overId: stri
     const sectionIndex = flowItems.findIndex((item) => item.type === "section" && item.id === sectionId);
     if (sectionIndex < 0) return pointer ? getSectionTargetIndexFromPointer(flowItems, pointer) : null;
 
-    const sectionRect = findAdminSectionElement(sectionId)?.getBoundingClientRect();
+    const sectionRect = findAdminSectionHeadingElement(sectionId)?.getBoundingClientRect();
     const insertAfter = pointer && sectionRect ? pointer.y > sectionRect.top + sectionRect.height / 2 : false;
     return sectionIndex + (insertAfter ? 1 : 0);
   }
@@ -1527,7 +1527,7 @@ function getSectionTargetIndexFromPointer(flowItems: ContentFlowItem[], pointer:
     .map((item, index) => {
       const rect =
         item.type === "section"
-          ? findAdminSectionElement(item.id)?.getBoundingClientRect()
+          ? findAdminSectionHeadingElement(item.id)?.getBoundingClientRect()
           : findAdminBlockElement(item.id)?.getBoundingClientRect();
       return rect ? { index, rect } : null;
     })
@@ -1658,6 +1658,12 @@ function findAdminBlockElement(blockId: string) {
 function findAdminSectionElement(sectionId: string) {
   return Array.from(document.querySelectorAll<HTMLElement>("[data-admin-section-id]")).find(
     (element) => element.dataset.adminSectionId === sectionId
+  );
+}
+
+function findAdminSectionHeadingElement(sectionId: string) {
+  return Array.from(document.querySelectorAll<HTMLElement>("[data-admin-section-heading-id]")).find(
+    (element) => element.dataset.adminSectionHeadingId === sectionId
   );
 }
 
@@ -2239,6 +2245,7 @@ function EditableSection({
       {hideHeader ? null : (
         <div
           {...sectionContainerProps}
+          data-admin-section-heading-id={section.id}
           className={cn("group relative flex items-center justify-between gap-3", sectionContainerProps?.className)}
         >
           <div className="min-w-0">
