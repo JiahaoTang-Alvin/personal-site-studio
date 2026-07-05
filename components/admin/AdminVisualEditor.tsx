@@ -371,14 +371,10 @@ export function AdminVisualEditor({ initialConfig }: { initialConfig: SiteConfig
     ) {
       return;
     }
-    const previousLayouts = captureAllAdminBlockLayouts();
+    cancelAdminBlockLayoutAnimations();
     dragPreviewPlacementRef.current = next;
     setDragPreviewPlacement(next);
-    window.requestAnimationFrame(() => {
-      for (const { gridElement, layout } of previousLayouts) {
-        animateAdminBlockLayout(gridElement, layout, next?.blockId ?? "");
-      }
-    });
+    window.requestAnimationFrame(cancelAdminBlockLayoutAnimations);
   }
 
   function update(next: SiteConfig) {
@@ -2571,11 +2567,14 @@ function captureAdminBlockLayout(gridElement: HTMLElement | null) {
   return layout;
 }
 
-function captureAllAdminBlockLayouts() {
-  return Array.from(document.querySelectorAll<HTMLElement>("[data-admin-section-grid-id]")).map((gridElement) => ({
-    gridElement,
-    layout: captureAdminBlockLayout(gridElement)
-  }));
+function cancelAdminBlockLayoutAnimations() {
+  document.querySelectorAll<HTMLElement>("[data-admin-block-id], [data-admin-block-surface='true']").forEach((element) => {
+    element.getAnimations().forEach((animation) => {
+      if (animation.id === "admin-block-resize-layout" || animation.id === "admin-block-resize-surface") {
+        animation.cancel();
+      }
+    });
+  });
 }
 
 function animateAdminBlockLayout(gridElement: HTMLElement | null, previousLayout: Map<string, AdminBlockLayoutSnapshot>, activeBlockId: string) {
