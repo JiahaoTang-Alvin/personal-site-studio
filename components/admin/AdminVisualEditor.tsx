@@ -1065,7 +1065,8 @@ export function AdminVisualEditor({ initialConfig }: { initialConfig: SiteConfig
                               dragPreviewPlacement={
                                 shouldShowGridPreview && dragPreviewPlacement
                                   ? {
-                                      ...dragPreviewPlacement,
+                                      blockId: dragPreviewPlacement.blockId,
+                                      targetSectionId: dragPreviewPlacement.targetSectionId,
                                       targetIndex: (previewContentIndex ?? contentCursor) - contentCursor
                                     }
                                   : null
