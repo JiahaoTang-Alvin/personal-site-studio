@@ -1020,36 +1020,11 @@ export function AdminVisualEditor({ initialConfig }: { initialConfig: SiteConfig
 
                         didRenderGridPreview = true;
                         nodes.push(
-                          <EditableSection
+                          <StandaloneBlockDropPreview
                             key={`block-preview:${activeDragBlock.id}:${position}`}
-                            section={topLevelSection}
-                            contentGroupId={`block-preview:${activeDragBlock.id}:${position}`}
-                            blocks={[]}
-                            onEditSection={() => undefined}
-                            onDeleteSection={() => undefined}
-                            onEditBlock={(blockId) => setModal({ type: "block", blockId })}
-                            onDeleteBlock={deleteBlock}
-                            onSelectBlock={setSelectedBlockId}
                             device={editorDevice}
-                            activeDragBlockId={activeDragBlockId}
-                            dragPreviewBlock={activeDragBlock}
-                            dragPreviewPlacement={{ ...dragPreviewPlacement, targetIndex: 0 }}
-                            onResizeBlock={patchBlockSizeForDevice}
-                            onResizePreview={setResizePreviewSize}
-                            resizeDrafts={resizeDrafts}
-                            onResizeDraft={(blockId, size) =>
-                              setResizeDrafts((current) => {
-                                if (!size) {
-                                  const next = { ...current };
-                                  delete next[blockId];
-                                  return next;
-                                }
-                                return { ...current, [blockId]: size };
-                              })
-                            }
-                            sectionHandleProps={{}}
-                            hideHeader
-                            showDragPreview
+                            block={activeDragBlock}
+                            placement={{ columnStart: dragPreviewPlacement.columnStart, rowStart: dragPreviewPlacement.rowStart }}
                           />
                         );
                       }
@@ -2321,6 +2296,28 @@ function EditableSection({
           </div>
         </SortableContext>
       ) : null}
+    </section>
+  );
+}
+
+function StandaloneBlockDropPreview({
+  block,
+  device,
+  placement
+}: {
+  block: Block;
+  device: LayoutDevice;
+  placement?: BlockPlacementDraft;
+}) {
+  return (
+    <section className="admin-grid-container grid gap-6 rounded-[24px] p-2 transition">
+      <div
+        className={cn("relative", blockGridClassByDevice[device])}
+        data-device={device}
+        style={{ gridTemplateColumns: "repeat(12, minmax(0, 1fr))", gridAutoFlow: "dense" }}
+      >
+        <BlockDropPreview block={block} device={device} placement={placement} />
+      </div>
     </section>
   );
 }
