@@ -180,8 +180,6 @@ type BlockPlacementDraft = {
   rowStart?: number;
 };
 
-const blockDropPreviewId = "__block_drop_preview__";
-
 type RectLike = Pick<DOMRectReadOnly, "left" | "top" | "width" | "height">;
 type MeasuredRect = RectLike & Pick<DOMRectReadOnly, "right" | "bottom">;
 type Point = {
@@ -211,8 +209,7 @@ type ContentFlowItem =
 
 type EditorContentItem =
   | { id: string; type: "top-level-blocks"; blocks: Block[]; sortOrder: number }
-  | { id: string; type: "text-block"; block: Block; sortOrder: number }
-  | { id: string; type: "text-block-preview"; block: Block };
+  | { id: string; type: "text-block"; block: Block; sortOrder: number };
 
 export function AdminVisualEditor({ initialConfig }: { initialConfig: SiteConfig }) {
   const [config, setConfig] = useState(() => normalizeContentFlowConfig(initialConfig));
@@ -279,8 +276,8 @@ export function AdminVisualEditor({ initialConfig }: { initialConfig: SiteConfig
     [activeDragBlockId, config.blocks]
   );
   const editorContentItems = useMemo(
-    () => getEditorContentItems(renderModel, dragPreviewPlacement, activeDragBlock),
-    [activeDragBlock, dragPreviewPlacement, renderModel]
+    () => renderModel.orderedContentItems,
+    [renderModel]
   );
   const topLevelSection = useMemo<Section>(
     () => ({
@@ -1007,8 +1004,6 @@ export function AdminVisualEditor({ initialConfig }: { initialConfig: SiteConfig
                           onSelectBlock={setSelectedBlockId}
                           device={editorDevice}
                           activeDragBlockId={activeDragBlockId}
-                          dragPreviewBlock={activeDragBlock}
-                          dragPreviewPlacement={dragPreviewPlacement}
                           onResizeBlock={patchBlockSizeForDevice}
                           onResizePreview={setResizePreviewSize}
                           resizeDrafts={resizeDrafts}
@@ -1024,16 +1019,7 @@ export function AdminVisualEditor({ initialConfig }: { initialConfig: SiteConfig
                           }
                           sectionHandleProps={{}}
                           hideHeader
-                          showDragPreview={
-                            activeDragBlock !== null &&
-                            !isSectionTextBlock(activeDragBlock) &&
-                            dragPreviewPlacement?.targetSectionId === topLevelBlockSectionId &&
-                            (editorContentItems.filter((contentItem) => contentItem.type === "top-level-blocks").length === 1 ||
-                              item.blocks.some((block) => block.id === activeDragBlockId))
-                          }
                         />
-                      ) : item.type === "text-block-preview" ? (
-                        <TextBlockDropPreview key={item.id} block={item.block} />
                       ) : (
                         <SortableTextBlock
                           key={item.id}
@@ -1369,72 +1355,6 @@ function getContentFlowForBlockMove(renderModel: ReturnType<typeof buildRenderMo
   }
 
   return flowItems;
-}
-
-function getEditorContentItems(
-  renderModel: ReturnType<typeof buildRenderModel>,
-  blockPreview: DragPreviewPlacement | null,
-  activeBlock: Block | null
-): EditorContentItem[] {
-  if (
-    blockPreview?.targetSectionId === topLevelBlockSectionId &&
-    blockPreview.targetContentIndex !== undefined &&
-    activeBlock
-  ) {
-    const flowItems = getContentFlowForBlockMove(renderModel, activeBlock.id);
-    const nextItems: Array<ContentFlowItem | { type: "text-block-preview"; id: string; block: Block }> = [...flowItems];
-    nextItems.splice(Math.max(0, Math.min(blockPreview.targetContentIndex, flowItems.length)), 0, {
-      ...(isSectionTextBlock(activeBlock)
-        ? {
-            type: "text-block-preview" as const,
-            id: `text-block-preview:${activeBlock.id}`,
-            block: activeBlock
-          }
-        : {
-            type: "top-level-block" as const,
-            id: activeBlock.id,
-            block: activeBlock
-          })
-    });
-    return contentFlowItemsToEditorItems(nextItems);
-  }
-
-  return renderModel.orderedContentItems;
-}
-
-function contentFlowItemsToEditorItems(
-  nextItems: Array<ContentFlowItem | { type: "text-block-preview"; id: string; block: Block }>
-): EditorContentItem[] {
-  const contentItems: EditorContentItem[] = [];
-  let pendingBlocks: Block[] = [];
-
-  function flushBlocks() {
-    if (pendingBlocks.length === 0) return;
-    contentItems.push({
-      id: `top-level-blocks:${pendingBlocks[0].id}`,
-      type: "top-level-blocks",
-      blocks: pendingBlocks,
-      sortOrder: pendingBlocks[0].sortOrder
-    });
-    pendingBlocks = [];
-  }
-
-  for (const item of nextItems) {
-    if (item.type === "top-level-block") {
-      pendingBlocks.push(item.block);
-      continue;
-    }
-
-    flushBlocks();
-    if (item.type === "text-block-preview") {
-      contentItems.push(item);
-    } else {
-      contentItems.push({ id: item.id, type: "text-block", block: item.block, sortOrder: item.block.sortOrder });
-    }
-  }
-  flushBlocks();
-
-  return contentItems;
 }
 
 function DragOverlayBlockPreview({ block, width, height }: { block: Block; width: number; height: number }) {
@@ -2114,16 +2034,13 @@ function EditableSection({
   onDeleteBlock,
   onSelectBlock,
   activeDragBlockId,
-  dragPreviewBlock,
-  dragPreviewPlacement,
   onResizeBlock,
   onResizePreview,
   resizeDrafts,
   onResizeDraft,
   sectionHandleProps,
   sectionContainerProps,
-  hideHeader = false,
-  showDragPreview = false
+  hideHeader = false
 }: {
   section: Section;
   contentGroupId?: string;
@@ -2135,8 +2052,6 @@ function EditableSection({
   onDeleteBlock: (blockId: string) => void;
   onSelectBlock: (blockId: string) => void;
   activeDragBlockId: string | null;
-  dragPreviewBlock: Block | null;
-  dragPreviewPlacement: DragPreviewPlacement | null;
   onResizeBlock: (blockId: string, size: BlockSize) => void;
   onResizePreview: (size: BlockSize | null) => void;
   resizeDrafts: Record<string, BlockResizeDraft>;
@@ -2144,49 +2059,20 @@ function EditableSection({
   sectionHandleProps: React.HTMLAttributes<HTMLButtonElement>;
   sectionContainerProps?: React.HTMLAttributes<HTMLDivElement> & { ref?: (node: HTMLDivElement | null) => void };
   hideHeader?: boolean;
-  showDragPreview?: boolean;
 }) {
   const droppableId = contentGroupId ? `content-group:${contentGroupId}` : `section:${section.id}`;
   const { setNodeRef } = useDroppable({ id: droppableId });
-  const renderedBlocks = blocks;
-  const previewIndex =
-    showDragPreview && dragPreviewBlock && dragPreviewPlacement?.targetSectionId === section.id
-      ? Math.max(0, Math.min(dragPreviewPlacement.targetIndex, renderedBlocks.length))
-      : null;
-  const shouldRenderDropPreview = previewIndex !== null;
-  const gridItems: Array<{ type: "block"; block: Block } | { type: "preview"; block: Block; placement?: BlockPlacementDraft }> = [];
-  renderedBlocks.forEach((block, index) => {
-    if (shouldRenderDropPreview && previewIndex === index && dragPreviewBlock) {
-      gridItems.push({
-        type: "preview",
-        block: dragPreviewBlock,
-        placement: { columnStart: dragPreviewPlacement?.columnStart, rowStart: dragPreviewPlacement?.rowStart }
-      });
-    }
-    gridItems.push({ type: "block", block });
-  });
-  if (shouldRenderDropPreview && previewIndex === renderedBlocks.length && dragPreviewBlock) {
-    gridItems.push({
-      type: "preview",
-      block: dragPreviewBlock,
-      placement: { columnStart: dragPreviewPlacement?.columnStart, rowStart: dragPreviewPlacement?.rowStart }
-    });
-  }
   const compactedGridStyles = getCompactedBlockGridStyles(
-    gridItems.map((item) => {
-      const resizeDraft = resizeDrafts[item.block.id];
-      const resizedBlock = resizeDraft
-        ? { ...item.block, responsiveSizes: { ...item.block.responsiveSizes, [device]: resizeDraft.size } }
-        : item.block;
-      const block =
-        item.type === "preview" && item.placement
-          ? { ...resizedBlock, placements: { ...resizedBlock.placements, [device]: item.placement } }
-          : resizedBlock;
-      return { id: item.type === "preview" ? blockDropPreviewId : item.block.id, block };
+    blocks.map((block) => {
+      const resizeDraft = resizeDrafts[block.id];
+      return {
+        id: block.id,
+        block: resizeDraft ? { ...block, responsiveSizes: { ...block.responsiveSizes, [device]: resizeDraft.size } } : block
+      };
     }),
     device
   );
-  const shouldShowBlockGrid = hideHeader || blocks.length > 0 || previewIndex !== null;
+  const shouldShowBlockGrid = hideHeader || blocks.length > 0;
   return (
     <section
       ref={setNodeRef}
@@ -2238,83 +2124,29 @@ function EditableSection({
             data-admin-content-group-id={contentGroupId}
             style={{ gridTemplateColumns: "repeat(12, minmax(0, 1fr))", gridAutoFlow: "dense" }}
           >
-            {gridItems.map((item) =>
-              item.type === "preview" ? (
-                <BlockDropPreview
-                  key={blockDropPreviewId}
-                  block={item.block}
-                  device={device}
-                  placement={item.placement}
-                  layoutStyle={compactedGridStyles.get(blockDropPreviewId)}
-                />
-              ) : (
-                <SortableBlock
-                  key={item.block.id}
-                  block={item.block}
-                  displaySize={resizeDrafts[item.block.id]?.size ?? getBlockSize(item.block, device)}
-                  device={device}
-                  layoutStyle={compactedGridStyles.get(item.block.id)}
-                  isDragOverlayActive={activeDragBlockId === item.block.id}
-                  disableSortableTransform={activeDragBlockId !== null}
-                  hideOriginalDuringDrag={false}
-                  removeFromFlowDuringDrag={false}
-                  onEdit={() => onEditBlock(item.block.id)}
-                  onDelete={() => onDeleteBlock(item.block.id)}
-                  onSelect={() => onSelectBlock(item.block.id)}
-                  onResize={(size) => onResizeBlock(item.block.id, size)}
-                  onResizePreview={onResizePreview}
-                  onResizeDraft={(size) => onResizeDraft(item.block.id, size)}
-                />
-              )
-            )}
+            {blocks.map((block) => (
+              <SortableBlock
+                key={block.id}
+                block={block}
+                displaySize={resizeDrafts[block.id]?.size ?? getBlockSize(block, device)}
+                device={device}
+                layoutStyle={compactedGridStyles.get(block.id)}
+                isDragOverlayActive={activeDragBlockId === block.id}
+                disableSortableTransform={activeDragBlockId !== null}
+                hideOriginalDuringDrag={false}
+                removeFromFlowDuringDrag={false}
+                onEdit={() => onEditBlock(block.id)}
+                onDelete={() => onDeleteBlock(block.id)}
+                onSelect={() => onSelectBlock(block.id)}
+                onResize={(size) => onResizeBlock(block.id, size)}
+                onResizePreview={onResizePreview}
+                onResizeDraft={(size) => onResizeDraft(block.id, size)}
+              />
+            ))}
           </div>
         </SortableContext>
       ) : null}
     </section>
-  );
-}
-
-function BlockDropPreview({
-  block,
-  device,
-  placement,
-  layoutStyle
-}: {
-  block: Block;
-  device: LayoutDevice;
-  placement?: BlockPlacementDraft;
-  layoutStyle?: React.CSSProperties;
-}) {
-  const displaySize = getBlockSize(block, device);
-  const gridSpan = getDefaultGridSpan(displaySize, device);
-  const rowSpan = getDefaultRowSpan(displaySize);
-  const previewBlock = placement ? { ...block, placements: { ...block.placements, [device]: placement } } : block;
-  const placementStyle = {
-    ...getAdminBlockGridStyle(previewBlock, device, displaySize),
-    ...layoutStyle,
-    gridColumnEnd: `span ${gridSpan}`,
-    gridRowEnd: `span ${rowSpan}`
-  };
-  return (
-    <div
-      style={placementStyle}
-      className={cn(
-        "pointer-events-none rounded-[20px] border-2 border-dashed border-[#1479FF]/45 bg-[#EDF6FF]/70",
-        blockSizeClassByDevice[device][displaySize]
-      )}
-    >
-      <div className="grid h-full w-full place-items-center rounded-[18px] bg-white/45 text-xs font-semibold text-[#1479FF]">
-        放到这里
-      </div>
-    </div>
-  );
-}
-
-function TextBlockDropPreview({ block }: { block: Block }) {
-  return (
-    <div className="pointer-events-none rounded-[20px] border border-dashed border-[#1479FF]/45 bg-[#EDF6FF]/55 px-2 py-2">
-      <BlockCard block={block} disableActions withLayout={false} className="min-h-0 opacity-55" />
-    </div>
   );
 }
 
