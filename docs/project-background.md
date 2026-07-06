@@ -54,6 +54,16 @@ Do not reintroduce visible blank sections as placeholders. If blocks are detache
 - Keep controls direct and concrete: icons for actions, segmented choices for layout, handles for drag/resize.
 - Admin behavior should match the visual public page closely.
 
+## Public Responsive Layout
+
+The public page has three layout modes:
+
+- Wide desktop: if the viewport has enough width, render the profile module as the left desktop column and render the content modules on the right. The whole shell is centered as `left profile + right content`.
+- Narrow desktop / tablet: if the viewport is not wide enough for the two-column desktop shell, stack the profile area above the content area. The content area should keep the personal-site module layout below it instead of forcing a cramped side-by-side layout.
+- Mobile: at the narrow phone breakpoint, use the mobile module layout. Block grids use the mobile two-column logical grid, so square blocks can sit left/right and wider blocks span the full mobile content width.
+
+The right content width should be content-aware on desktop. It should use at least two logical columns because text blocks need readable width, and expand to three logical columns only when visible blocks actually use the third column. Text blocks themselves should not force the content area to become three columns.
+
 ## Current Constraints
 
 - No database beyond Vercel Blob.

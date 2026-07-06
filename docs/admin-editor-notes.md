@@ -23,6 +23,8 @@ This document records the current admin editor behavior and the main implementat
 - Optional per-device placement is stored on the block as `placements.desktop.columnStart` / `placements.desktop.rowStart` and `placements.mobile.columnStart` / `placements.mobile.rowStart`.
 - Before rendering, admin and public block grids compact saved row placements so a completely empty horizontal row does not keep vertical space.
 - Public grid sizing is in `app/globals.css` and `constants/block-layout.ts`.
+- Public desktop layout is responsive at the shell level: wide desktop uses the left profile column plus the right content column; narrower desktop/tablet stacks the profile above content; phone width uses the mobile two-logical-column block layout.
+- Public desktop content width is content-aware. It uses at least two logical columns and expands to three only when visible non-text blocks occupy the third column. Full-width text blocks do not force the right content area to three columns by themselves.
 - Admin grid sizing uses 12 columns:
   - Desktop small/tall: 4 columns.
   - Desktop wide/large-square: 8 columns.
