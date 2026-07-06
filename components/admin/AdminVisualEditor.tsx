@@ -52,7 +52,7 @@ import {
   X,
   Youtube
 } from "lucide-react";
-import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { flushSync } from "react-dom";
 import { toast } from "sonner";
 import type { Block, BlockSize, BlockType, LayoutDevice } from "@/types/block";
@@ -206,14 +206,8 @@ type GridPlacement = {
 };
 
 type ContentFlowItem =
-  | { type: "section"; id: string; section: Section }
   | { type: "text-block"; id: string; block: Block }
   | { type: "top-level-block"; id: string; block: Block };
-
-type SectionDragPreview = {
-  sectionId: string;
-  targetIndex: number;
-};
 
 type EditorContentItem =
   | { id: string; type: "top-level-blocks"; blocks: Block[]; sortOrder: number }
@@ -229,8 +223,6 @@ export function AdminVisualEditor({ initialConfig }: { initialConfig: SiteConfig
   const [resizePreviewSize, setResizePreviewSize] = useState<BlockSize | null>(null);
   const [resizeDrafts, setResizeDrafts] = useState<Record<string, BlockResizeDraft>>({});
   const [activeDragBlockId, setActiveDragBlockId] = useState<string | null>(null);
-  const [activeDragSectionId, setActiveDragSectionId] = useState<string | null>(null);
-  const [sectionDragPreview, setSectionDragPreview] = useState<SectionDragPreview | null>(null);
   const [dragOverlayRect, setDragOverlayRect] = useState<DragOverlayRect | null>(null);
   const [dragPreviewPlacement, setDragPreviewPlacement] = useState<DragPreviewPlacement | null>(null);
   const [hasMounted, setHasMounted] = useState(false);
@@ -246,14 +238,13 @@ export function AdminVisualEditor({ initialConfig }: { initialConfig: SiteConfig
   const dragPointerSourceRef = useRef<"native" | "synthetic" | null>(null);
   const dragOverlayRectRef = useRef<DragOverlayRect | null>(null);
   const activeDragBlockIdRef = useRef<string | null>(null);
-  const sectionDragPreviewRef = useRef<SectionDragPreview | null>(null);
   const dragPreviewPlacementRef = useRef<DragPreviewPlacement | null>(null);
   const dragPreviewSyncFrameRef = useRef<number | null>(null);
   const configRef = useRef(config);
   const editorDeviceRef = useRef(editorDevice);
   const sensors = useSensors(
-    useSensor(MouseSensor, { activationConstraint: { distance: 8 } }),
-    useSensor(TouchSensor, { activationConstraint: { delay: 500, tolerance: 8 } })
+    useSensor(MouseSensor, { activationConstraint: { distance: 6 } }),
+    useSensor(TouchSensor, { activationConstraint: { delay: 320, tolerance: 10 } })
   );
   const validation = useMemo(() => validateSiteConfig(config), [config]);
   const renderModel = useMemo(() => buildRenderModel(config), [config]);
@@ -263,17 +254,6 @@ export function AdminVisualEditor({ initialConfig }: { initialConfig: SiteConfig
   const collisionDetection = useMemo<CollisionDetection>(() => {
     return (args) => {
       const activeId = String(args.active.id);
-      if (activeId.startsWith("section-order:")) {
-        return closestCenter({
-          ...args,
-          droppableContainers: args.droppableContainers.filter((container) => {
-            const id = String(container.id);
-            if (id.startsWith("section-order:")) return true;
-            return blockSectionById.get(id) === topLevelBlockSectionId;
-          })
-        });
-      }
-
       const activeBlockSectionId = blockSectionById.get(activeId);
 
       if (!activeBlockSectionId) {
@@ -284,7 +264,6 @@ export function AdminVisualEditor({ initialConfig }: { initialConfig: SiteConfig
         ...args,
         droppableContainers: args.droppableContainers.filter((container) => {
           const id = String(container.id);
-          if (id.startsWith("section-order:")) return false;
           if (id === `section:${activeBlockSectionId}`) return false;
           return true;
         })
@@ -299,13 +278,9 @@ export function AdminVisualEditor({ initialConfig }: { initialConfig: SiteConfig
     () => (activeDragBlockId ? config.blocks.find((block) => block.id === activeDragBlockId) ?? null : null),
     [activeDragBlockId, config.blocks]
   );
-  const activeDragSection = useMemo(
-    () => (activeDragSectionId ? config.sections.find((section) => section.id === activeDragSectionId) ?? null : null),
-    [activeDragSectionId, config.sections]
-  );
   const editorContentItems = useMemo(
-    () => getEditorContentItems(renderModel, sectionDragPreview, activeDragSection, dragPreviewPlacement, activeDragBlock),
-    [activeDragBlock, activeDragSection, dragPreviewPlacement, renderModel, sectionDragPreview]
+    () => getEditorContentItems(renderModel, dragPreviewPlacement, activeDragBlock),
+    [activeDragBlock, dragPreviewPlacement, renderModel]
   );
   const topLevelSection = useMemo<Section>(
     () => ({
@@ -377,6 +352,7 @@ export function AdminVisualEditor({ initialConfig }: { initialConfig: SiteConfig
       current?.blockId === next?.blockId &&
       current?.targetSectionId === next?.targetSectionId &&
       current?.targetIndex === next?.targetIndex &&
+      current?.targetContentIndex === next?.targetContentIndex &&
       current?.columnStart === next?.columnStart &&
       current?.rowStart === next?.rowStart
     ) {
@@ -422,15 +398,6 @@ export function AdminVisualEditor({ initialConfig }: { initialConfig: SiteConfig
 
   function patchProfile(patch: Partial<Profile>) {
     update({ ...config, profile: { ...config.profile, ...patch } });
-  }
-
-  function patchSection(sectionId: string, patch: Partial<Section>) {
-    update({
-      ...config,
-      sections: config.sections.map((section) =>
-        section.id === sectionId ? { ...section, ...patch, updatedAt: new Date().toISOString() } : section
-      )
-    });
   }
 
   function patchBlock(blockId: string, patch: Partial<Block>) {
@@ -609,20 +576,6 @@ export function AdminVisualEditor({ initialConfig }: { initialConfig: SiteConfig
     setModal({ type: "block", blockId: newBlock.id });
   }
 
-  function deleteSection(sectionId: string) {
-    if (!window.confirm("删除这个文本 Block？")) return;
-
-    update({
-      ...config,
-      sections: config.sections.filter((item) => item.id !== sectionId),
-      settings: {
-        ...config.settings,
-        topLevelBlocksSortOrder: undefined
-      }
-    });
-    setModal(null);
-  }
-
   function addSection() {
     const now = new Date().toISOString();
     const block: Block = {
@@ -661,24 +614,6 @@ export function AdminVisualEditor({ initialConfig }: { initialConfig: SiteConfig
 
   function onDragStart(event: DragStartEvent) {
     const activeId = String(event.active.id);
-    if (activeId.startsWith("section-order:")) {
-      const sectionId = activeId.replace("section-order:", "");
-      const startPointer = getClientPoint(event.activatorEvent);
-      dragStartPointerRef.current = startPointer;
-      dragPointerRef.current = startPointer;
-      dragPointerOffsetRef.current = null;
-      dragPointerUpdatedAtRef.current = startPointer ? getNow() : 0;
-      dragPointerSourceRef.current = startPointer ? "native" : null;
-      window.addEventListener("pointermove", updateDragPointerFromPointerEvent);
-      window.addEventListener("touchmove", updateDragPointerFromTouchEvent, { passive: true });
-      setActiveDragSectionId(sectionId);
-      updateSectionDragPreview(activeId, null, startPointer);
-      setActiveDragBlockId(null);
-      setDragOverlayRect(null);
-      updateDragPreviewPlacement(null);
-      return;
-    }
-
     const activeBlock = config.blocks.find((block) => block.id === activeId);
     const activeRect = getAdminBlockVisualRect(activeId) ?? event.active.rect.current.initial;
     const startPointer = getClientPoint(event.activatorEvent);
@@ -716,101 +651,10 @@ export function AdminVisualEditor({ initialConfig }: { initialConfig: SiteConfig
       }
     }
 
-    if (activeId.startsWith("section-order:")) {
-      updateSectionDragPreview(activeId, null, dragPointerRef.current);
-      return;
-    }
-
     const activeBlock = config.blocks.find((block) => block.id === activeId);
     if (!activeBlock) return;
 
-    updateCrossSectionDragPreview(activeBlock);
-  }
-
-  function updateSectionDragPreview(activeId: string, overId: string | null, pointer: Point | null) {
-    const next = getSectionDragPreviewTarget(activeId, overId, pointer);
-    if (!next) return null;
-
-    const current = sectionDragPreviewRef.current;
-    if (!current || current.sectionId !== next.sectionId || current.targetIndex !== next.targetIndex) {
-      sectionDragPreviewRef.current = next;
-      setSectionDragPreview(next);
-    }
-    return next;
-  }
-
-  function getSectionDragPreviewTarget(activeId: string, overId: string | null, pointer: Point | null) {
-    const activeSectionId = activeId.replace("section-order:", "");
-    if (activeSectionId === topLevelBlockSectionId) return null;
-
-    const currentRenderModel = buildRenderModel(configRef.current);
-    const flowItems = getContentFlowForSectionMove(currentRenderModel, activeSectionId);
-    const targetIndex = getSectionContentTargetIndex(flowItems, overId, pointer);
-    if (targetIndex === null) return null;
-
-    return { sectionId: activeSectionId, targetIndex: Math.max(0, Math.min(targetIndex, flowItems.length)) };
-  }
-
-  function commitSectionContentMove(activeId: string, targetIndex: number | null) {
-    const activeSectionId = activeId.replace("section-order:", "");
-    if (activeSectionId === topLevelBlockSectionId || targetIndex === null) return;
-
-    setConfig((current) => {
-      const activeSection = current.sections.find((section) => section.id === activeSectionId);
-      if (!activeSection) return current;
-      const now = new Date().toISOString();
-      const currentRenderModel = buildRenderModel(current);
-      const flowItems = getContentFlowForSectionMove(currentRenderModel, activeSectionId);
-
-      const nextItems = [...flowItems];
-      nextItems.splice(Math.max(0, Math.min(targetIndex, flowItems.length)), 0, {
-        type: "section",
-        id: activeSectionId,
-        section: activeSection
-      });
-
-      const sectionSortOrderById = new Map<string, number>();
-      const topLevelBlockSortOrderById = new Map<string, number>();
-      nextItems.forEach((item, index) => {
-        const sortOrder = index + 1;
-        if (item.type === "section") {
-          sectionSortOrderById.set(item.id, sortOrder);
-        } else {
-          topLevelBlockSortOrderById.set(item.id, sortOrder);
-        }
-      });
-
-      const nextBlocks = current.blocks.map((block) =>
-        block.sectionId === activeSectionId || topLevelBlockSortOrderById.has(block.id)
-          ? {
-              ...block,
-              sectionId: topLevelBlockSectionId,
-              sortOrder: topLevelBlockSortOrderById.get(block.id) ?? block.sortOrder,
-              updatedAt: block.sectionId === activeSectionId ? now : block.updatedAt
-            }
-          : block
-      );
-      const nextSections = current.sections.map((section) =>
-        sectionSortOrderById.has(section.id)
-          ? {
-              ...section,
-              sortOrder: sectionSortOrderById.get(section.id) ?? section.sortOrder,
-              updatedAt: section.id === activeSectionId ? now : section.updatedAt
-            }
-          : section
-      );
-
-      setIsDirty(true);
-      return normalizeContentFlowConfig({
-        ...current,
-        sections: nextSections,
-        blocks: nextBlocks,
-        settings: {
-          ...current.settings,
-          topLevelBlocksSortOrder: undefined
-        }
-      });
-    });
+    updateBlockDragPreview(activeBlock);
   }
 
   function onDragOver(event: DragOverEvent) {
@@ -819,22 +663,14 @@ export function AdminVisualEditor({ initialConfig }: { initialConfig: SiteConfig
     const activeId = String(active.id);
     const overId = String(over.id);
 
-    if (activeId.startsWith("section-order:") || overId.startsWith("section-order:")) {
-      updateDragPreviewPlacement(null);
-      if (activeId.startsWith("section-order:")) {
-        updateSectionDragPreview(activeId, overId, dragPointerRef.current);
-      }
-      return;
-    }
-
     const activeBlock = config.blocks.find((block) => block.id === activeId);
     if (!activeBlock) return;
 
     const overBlock = config.blocks.find((block) => block.id === overId);
-    if (!overBlock && !overId.startsWith("section:")) return;
+    if (!overBlock && !isSectionDroppableId(overId)) return;
 
-    const targetSectionId = overBlock?.sectionId ?? overId.replace("section:", "");
-    const syncedPreview = updateCrossSectionDragPreview(activeBlock);
+    const targetSectionId = overBlock?.sectionId ?? getSectionIdFromDroppableId(overId);
+    const syncedPreview = updateBlockDragPreview(activeBlock);
     if (syncedPreview) {
       return;
     }
@@ -872,15 +708,11 @@ export function AdminVisualEditor({ initialConfig }: { initialConfig: SiteConfig
 
   function onDragEnd(event: DragEndEvent) {
     const previewPlacement = dragPreviewPlacementRef.current;
-    const sectionPreview = sectionDragPreviewRef.current;
     const finalPointer = dragPointerRef.current;
     const finalDragRect = getCurrentDragRect();
     const { active, over } = event;
     const activeId = String(active.id);
     setActiveDragBlockId(null);
-    setActiveDragSectionId(null);
-    setSectionDragPreview(null);
-    sectionDragPreviewRef.current = null;
     setDragOverlayRect(null);
     dragStartPointerRef.current = null;
     dragPointerRef.current = null;
@@ -894,28 +726,31 @@ export function AdminVisualEditor({ initialConfig }: { initialConfig: SiteConfig
     window.removeEventListener("touchmove", updateDragPointerFromTouchEvent);
     updateDragPreviewPlacement(null);
 
-    if (activeId.startsWith("section-order:")) {
-      const finalPreview =
-        sectionPreview?.sectionId === activeId.replace("section-order:", "")
-          ? sectionPreview
-          : getSectionDragPreviewTarget(activeId, over ? String(over.id) : null, finalPointer);
-      commitSectionContentMove(activeId, finalPreview?.targetIndex ?? null);
-      return;
-    }
-
     const activeBlock = config.blocks.find((block) => block.id === activeId);
     if (!activeBlock) return;
 
-    if (previewPlacement?.blockId === activeId) {
+    const finalPreviewPlacement =
+      previewPlacement?.blockId === activeId
+        ? previewPlacement
+        : getBlockDragPreviewPlacement({
+            config,
+            activeBlock,
+            pointer: finalPointer,
+            dragRect: finalDragRect,
+            device: editorDevice,
+            previousPlacement: previewPlacement
+          });
+
+    if (finalPreviewPlacement?.blockId === activeId) {
       if (
-        previewPlacement.targetSectionId === topLevelBlockSectionId &&
-        previewPlacement.targetContentIndex !== undefined
+        finalPreviewPlacement.targetSectionId === topLevelBlockSectionId &&
+        finalPreviewPlacement.targetContentIndex !== undefined
       ) {
         update(
           moveBlockToContentIndex(
             activeId,
-            previewPlacement.targetContentIndex,
-            { columnStart: previewPlacement.columnStart, rowStart: previewPlacement.rowStart }
+            finalPreviewPlacement.targetContentIndex,
+            { columnStart: finalPreviewPlacement.columnStart, rowStart: finalPreviewPlacement.rowStart }
           )
         );
         return;
@@ -925,9 +760,9 @@ export function AdminVisualEditor({ initialConfig }: { initialConfig: SiteConfig
         ...config,
         blocks: moveBlockWithPlacement(
           activeId,
-          previewPlacement.targetSectionId,
-          previewPlacement.targetIndex,
-          { columnStart: previewPlacement.columnStart, rowStart: previewPlacement.rowStart }
+          finalPreviewPlacement.targetSectionId,
+          finalPreviewPlacement.targetIndex,
+          { columnStart: finalPreviewPlacement.columnStart, rowStart: finalPreviewPlacement.rowStart }
         )
       });
       return;
@@ -956,9 +791,9 @@ export function AdminVisualEditor({ initialConfig }: { initialConfig: SiteConfig
     const overId = String(over.id);
 
     const overBlock = config.blocks.find((block) => block.id === overId);
-    if (!overBlock && !overId.startsWith("section:")) return;
+    if (!overBlock && !isSectionDroppableId(overId)) return;
 
-    const targetSectionId = overBlock?.sectionId ?? overId.replace("section:", "");
+    const targetSectionId = overBlock?.sectionId ?? getSectionIdFromDroppableId(overId);
     if (targetSectionId !== activeBlock.sectionId) return;
     if (!overBlock && targetSectionId === activeBlock.sectionId) return;
     if (overBlock && isSectionTextBlock(overBlock)) return;
@@ -989,9 +824,6 @@ export function AdminVisualEditor({ initialConfig }: { initialConfig: SiteConfig
 
   function onDragCancel() {
     setActiveDragBlockId(null);
-    setActiveDragSectionId(null);
-    setSectionDragPreview(null);
-    sectionDragPreviewRef.current = null;
     setDragOverlayRect(null);
     dragStartPointerRef.current = null;
     dragPointerRef.current = null;
@@ -1011,7 +843,7 @@ export function AdminVisualEditor({ initialConfig }: { initialConfig: SiteConfig
     dragPreviewSyncFrameRef.current = window.requestAnimationFrame(() => {
       dragPreviewSyncFrameRef.current = null;
       const activeId = activeDragBlockIdRef.current;
-      if (!activeId || activeId.startsWith("section-order:")) return;
+      if (!activeId) return;
       const currentConfig = configRef.current;
       const activeBlock = currentConfig.blocks.find((block) => block.id === activeId);
       if (!activeBlock) return;
@@ -1051,7 +883,7 @@ export function AdminVisualEditor({ initialConfig }: { initialConfig: SiteConfig
     [scheduleDragPreviewSync]
   );
 
-  function updateCrossSectionDragPreview(activeBlock: Block) {
+  function updateBlockDragPreview(activeBlock: Block) {
     const pointer = dragPointerRef.current;
     const next = getBlockDragPreviewPlacement({
       config,
@@ -1158,7 +990,7 @@ export function AdminVisualEditor({ initialConfig }: { initialConfig: SiteConfig
                 />
                 <section className="grid min-w-0 gap-2">
                   <SortableContext
-                    items={config.blocks.map((block) => block.id)}
+                    items={editorContentItems.flatMap((item) => (item.type === "text-block" ? [item.block.id] : []))}
                     strategy={rectSortingStrategy}
                   >
                     {editorContentItems.map((item) =>
@@ -1244,8 +1076,6 @@ export function AdminVisualEditor({ initialConfig }: { initialConfig: SiteConfig
                     height={dragOverlayRect.height}
                   />
                 </div>
-              ) : activeDragSection ? (
-                <SectionDragOverlayPreview section={activeDragSection} />
               ) : null}
             </DragOverlay>
           </DndContext>
@@ -1520,25 +1350,6 @@ function moveItem<T>(items: T[], oldIndex: number, newIndex: number) {
   return next;
 }
 
-function getContentFlowForSectionMove(renderModel: ReturnType<typeof buildRenderModel>, activeSectionId: string): ContentFlowItem[] {
-  const flowItems: ContentFlowItem[] = [];
-
-  for (const item of renderModel.orderedContentItems) {
-    if (item.type === "top-level-blocks") {
-      flowItems.push(...item.blocks.map((block) => ({ type: "top-level-block" as const, id: block.id, block })));
-      continue;
-    }
-
-    if (item.id === activeSectionId) {
-      continue;
-    }
-
-    flowItems.push({ type: "text-block", id: item.id, block: item.block });
-  }
-
-  return flowItems;
-}
-
 function getContentFlowForBlockMove(renderModel: ReturnType<typeof buildRenderModel>, activeBlockId: string): ContentFlowItem[] {
   const flowItems: ContentFlowItem[] = [];
 
@@ -1562,8 +1373,6 @@ function getContentFlowForBlockMove(renderModel: ReturnType<typeof buildRenderMo
 
 function getEditorContentItems(
   renderModel: ReturnType<typeof buildRenderModel>,
-  preview: SectionDragPreview | null,
-  activeSection: Section | null,
   blockPreview: DragPreviewPlacement | null,
   activeBlock: Block | null
 ): EditorContentItem[] {
@@ -1590,27 +1399,11 @@ function getEditorContentItems(
     return contentFlowItemsToEditorItems(nextItems);
   }
 
-  if (!preview || !activeSection) {
-    return renderModel.orderedContentItems;
-  }
-
-  const flowItems = getContentFlowForSectionMove(renderModel, preview.sectionId);
-  const nextItems: Array<ContentFlowItem | { type: "section-preview"; id: string; section: Section }> = [...flowItems];
-  nextItems.splice(Math.max(0, Math.min(preview.targetIndex, flowItems.length)), 0, {
-    type: "section-preview",
-    id: `section-preview:${preview.sectionId}`,
-    section: activeSection
-  });
-
-  return contentFlowItemsToEditorItems(nextItems);
+  return renderModel.orderedContentItems;
 }
 
 function contentFlowItemsToEditorItems(
-  nextItems: Array<
-    | ContentFlowItem
-    | { type: "section-preview"; id: string; section: Section }
-    | { type: "text-block-preview"; id: string; block: Block }
-  >
+  nextItems: Array<ContentFlowItem | { type: "text-block-preview"; id: string; block: Block }>
 ): EditorContentItem[] {
   const contentItems: EditorContentItem[] = [];
   let pendingBlocks: Block[] = [];
@@ -1633,13 +1426,8 @@ function contentFlowItemsToEditorItems(
     }
 
     flushBlocks();
-    if (item.type === "section-preview") {
-      contentItems.push({ id: item.id, type: "text-block-preview", block: sectionToPreviewBlock(item.section) });
-    } else if (item.type === "text-block-preview") {
+    if (item.type === "text-block-preview") {
       contentItems.push(item);
-    } else if (item.type === "section") {
-      const block = sectionToPreviewBlock(item.section);
-      contentItems.push({ id: block.id, type: "text-block", block, sortOrder: block.sortOrder });
     } else {
       contentItems.push({ id: item.id, type: "text-block", block: item.block, sortOrder: item.block.sortOrder });
     }
@@ -1647,117 +1435,6 @@ function contentFlowItemsToEditorItems(
   flushBlocks();
 
   return contentItems;
-}
-
-function getSectionContentTargetIndex(flowItems: ContentFlowItem[], overId: string | null, pointer: Point | null) {
-  if (!overId) {
-    return pointer ? getSectionTargetIndexFromPointer(flowItems, pointer) : null;
-  }
-
-  if (overId.startsWith("section-order:")) {
-    const sectionId = overId.replace("section-order:", "");
-    const sectionIndex = flowItems.findIndex((item) => item.type === "section" && item.id === sectionId);
-    if (sectionIndex < 0) return pointer ? getSectionTargetIndexFromPointer(flowItems, pointer) : null;
-
-    const sectionRect = findAdminSectionHeadingElement(sectionId)?.getBoundingClientRect();
-    const insertAfter = pointer && sectionRect ? pointer.y > sectionRect.top + sectionRect.height / 2 : false;
-    return sectionIndex + (insertAfter ? 1 : 0);
-  }
-
-  const blockIndex = getTopLevelBlockInsertionIndex(flowItems, overId, pointer);
-  if (blockIndex !== null) {
-    return getFlowIndexForTopLevelBlockInsertion(flowItems, blockIndex);
-  }
-
-  return pointer ? getSectionTargetIndexFromPointer(flowItems, pointer) : null;
-}
-
-function sectionToPreviewBlock(section: Section): Block {
-  return {
-    id: `text-${section.id}`,
-    sectionId: topLevelBlockSectionId,
-    title: section.title,
-    subtitle: section.description ?? "",
-    description: "",
-    type: "section",
-    size: "section-text",
-    responsiveSizes: {
-      desktop: "section-text",
-      mobile: "section-text"
-    },
-    coverImage: "",
-    icon: section.emoji ?? "",
-    badge: "",
-    href: "",
-    actionType: "none",
-    openInNewTab: false,
-    backgroundColor: "",
-    textColor: "",
-    metadata: {
-      sourceSectionId: section.id,
-      titleAlign: section.titleAlign,
-      titleSize: section.titleSize
-    },
-    isVisible: section.isVisible,
-    isFeatured: false,
-    sortOrder: section.sortOrder,
-    createdAt: section.createdAt,
-    updatedAt: section.updatedAt
-  };
-}
-
-function getSectionTargetIndexFromPointer(flowItems: ContentFlowItem[], pointer: Point) {
-  const measuredItems = flowItems
-    .map((item, index) => {
-      const rect =
-        item.type === "section"
-          ? findAdminSectionHeadingElement(item.id)?.getBoundingClientRect()
-          : findAdminBlockElement(item.id)?.getBoundingClientRect();
-      return rect ? { index, rect } : null;
-    })
-    .filter((item): item is { index: number; rect: DOMRect } => item !== null)
-    .sort((a, b) => a.rect.top - b.rect.top);
-
-  for (const item of measuredItems) {
-    if (pointer.y < item.rect.top + item.rect.height / 2) return item.index;
-  }
-
-  return flowItems.length;
-}
-
-function getTopLevelBlockInsertionIndex(flowItems: ContentFlowItem[], overId: string, pointer: Point | null) {
-  const topLevelBlocks = flowItems.filter((item): item is Extract<ContentFlowItem, { type: "top-level-block" }> => item.type === "top-level-block");
-  const overBlockIndex = topLevelBlocks.findIndex((item) => item.id === overId);
-  if (overBlockIndex < 0) return null;
-  if (!pointer) return overBlockIndex;
-
-  return getInsertionIndexFromBlockRects(
-    topLevelBlocks.map((item) => item.block),
-    pointer
-  );
-}
-
-function getFlowIndexForTopLevelBlockInsertion(flowItems: ContentFlowItem[], blockInsertionIndex: number) {
-  if (blockInsertionIndex <= 0) {
-    const firstBlockIndex = flowItems.findIndex((item) => item.type === "top-level-block");
-    return firstBlockIndex < 0 ? flowItems.length : firstBlockIndex;
-  }
-
-  let seenBlocks = 0;
-  for (let index = 0; index < flowItems.length; index += 1) {
-    if (flowItems[index].type !== "top-level-block") continue;
-    if (seenBlocks === blockInsertionIndex) return index;
-    seenBlocks += 1;
-  }
-
-  let lastBlockIndex = -1;
-  for (let index = flowItems.length - 1; index >= 0; index -= 1) {
-    if (flowItems[index].type === "top-level-block") {
-      lastBlockIndex = index;
-      break;
-    }
-  }
-  return lastBlockIndex < 0 ? flowItems.length : lastBlockIndex + 1;
 }
 
 function DragOverlayBlockPreview({ block, width, height }: { block: Block; width: number; height: number }) {
@@ -1794,30 +1471,6 @@ function DragOverlayBlockPreview({ block, width, height }: { block: Block; width
   );
 }
 
-function SectionDragOverlayPreview({ section }: { section: Section }) {
-  return (
-    <div className="pointer-events-none w-[min(520px,70vw)] rounded-[20px] border border-[#111]/80 bg-white px-3 py-2 opacity-95">
-      <h2 className="text-2xl font-bold tracking-normal">
-        {section.title}
-        {section.emoji ? <span className="ml-1 text-[#1479FF]">{section.emoji}</span> : null}
-      </h2>
-      {section.description ? <p className="mt-1 text-sm text-[#64748B]">{section.description}</p> : null}
-    </div>
-  );
-}
-
-function SectionDropPreview({ section }: { section: Section }) {
-  return (
-    <div className="pointer-events-none rounded-[20px] border border-dashed border-[#1479FF]/45 bg-[#EDF6FF]/55 px-3 py-2">
-      <h2 className="text-2xl font-bold tracking-normal text-[#111]/55">
-        {section.title}
-        {section.emoji ? <span className="ml-1 text-[#1479FF]/55">{section.emoji}</span> : null}
-      </h2>
-      {section.description ? <p className="mt-1 text-sm text-[#64748B]/60">{section.description}</p> : null}
-    </div>
-  );
-}
-
 function getAdminBlockVisualRect(blockId: string) {
   const element = findAdminBlockElement(blockId);
   return element?.getBoundingClientRect() ?? null;
@@ -1836,12 +1489,6 @@ function getDragOverlayRect(block: Block, rect: RectLike, device: LayoutDevice):
 function findAdminBlockElement(blockId: string) {
   return Array.from(document.querySelectorAll<HTMLElement>("[data-admin-block-id]")).find(
     (element) => element.dataset.adminBlockId === blockId
-  );
-}
-
-function findAdminSectionHeadingElement(sectionId: string) {
-  return Array.from(document.querySelectorAll<HTMLElement>("[data-admin-section-heading-id]")).find(
-    (element) => element.dataset.adminSectionHeadingId === sectionId
   );
 }
 
@@ -1867,6 +1514,16 @@ function getNow() {
   return typeof performance === "undefined" ? Date.now() : performance.now();
 }
 
+function isSectionDroppableId(id: string) {
+  return id.startsWith("section:") || id.startsWith("content-group:");
+}
+
+function getSectionIdFromDroppableId(id: string) {
+  if (id.startsWith("content-group:")) return topLevelBlockSectionId;
+  if (id.startsWith("section:")) return id.replace("section:", "");
+  return topLevelBlockSectionId;
+}
+
 function getBlockDragPreviewPlacement({
   config,
   activeBlock,
@@ -1884,18 +1541,29 @@ function getBlockDragPreviewPlacement({
 }): DragPreviewPlacement | null {
   const contentTarget = getTopLevelContentTargetFromDrag(config, activeBlock, pointer, dragRect);
   if (contentTarget) {
+    const placement = isSectionTextBlock(activeBlock)
+      ? undefined
+      : getPlacementFromDrag({
+          sectionId: topLevelBlockSectionId,
+          block: activeBlock,
+          pointer,
+          dragRect,
+          device
+        });
+
     return {
       blockId: activeBlock.id,
       targetSectionId: topLevelBlockSectionId,
       targetIndex: contentTarget.targetIndex,
-      targetContentIndex: contentTarget.targetContentIndex
+      targetContentIndex: contentTarget.targetContentIndex,
+      ...placement
     };
   }
 
   if (isSectionTextBlock(activeBlock)) {
     const fallbackIndex = getContentTargetIndexFromPointer(
       getContentFlowForBlockMove(buildRenderModel(config), activeBlock.id),
-      getDragIntentPoint(pointer, dragRect) ?? pointer
+      pointer ?? getDragCenterPoint(dragRect)
     );
 
     return {
@@ -1934,7 +1602,7 @@ function getTopLevelContentTargetFromDrag(
   pointer: Point | null,
   dragRect: MeasuredRect | null
 ) {
-  const intentPoint = getDragIntentPoint(pointer, dragRect) ?? pointer;
+  const intentPoint = pointer ?? getDragCenterPoint(dragRect);
   if (!intentPoint) return null;
 
   const flowItems = getContentFlowForBlockMove(buildRenderModel(config), activeBlock.id);
@@ -1945,9 +1613,9 @@ function getTopLevelContentTargetFromDrag(
 
   for (let index = 0; index < flowItems.length; index += 1) {
     const item = flowItems[index];
-    if (item.type !== "text-block" && item.type !== "section") continue;
+    if (item.type !== "text-block") continue;
 
-    const rect = item.type === "section" ? findAdminSectionHeadingElement(item.id)?.getBoundingClientRect() : findAdminBlockElement(item.id)?.getBoundingClientRect();
+    const rect = findAdminBlockElement(item.id)?.getBoundingClientRect();
     if (!rect) continue;
 
     const verticalIntentBand = Math.max(20, rect.height * 0.65);
@@ -2042,10 +1710,7 @@ function getContentTargetIndexFromPointer(flowItems: ContentFlowItem[], pointer:
 
   const measuredItems = flowItems
     .map((item, index) => {
-      const rect =
-        item.type === "section"
-          ? findAdminSectionHeadingElement(item.id)?.getBoundingClientRect()
-          : findAdminBlockElement(item.id)?.getBoundingClientRect();
+      const rect = findAdminBlockElement(item.id)?.getBoundingClientRect();
       return rect ? { index, rect } : null;
     })
     .filter((item): item is { index: number; rect: DOMRect } => item !== null)
@@ -2102,6 +1767,14 @@ function getDragIntentPoint(pointer: Point | null, dragRect: MeasuredRect | null
   return pointer;
 }
 
+function getDragCenterPoint(dragRect: MeasuredRect | null): Point | null {
+  if (!dragRect) return null;
+  return {
+    x: dragRect.left + dragRect.width / 2,
+    y: dragRect.top + dragRect.height / 2
+  };
+}
+
 function getInsertionIndexFromPointer({
   targetBlocks,
   pointer,
@@ -2122,10 +1795,13 @@ function getInsertionIndexFromPointer({
   if (simulatedIndex !== null) return simulatedIndex;
 
   if (dragRect) {
-    return getInsertionIndexFromBlockRects(targetBlocks, {
-      x: dragRect.left + Math.min(48, dragRect.width * 0.18),
-      y: dragRect.top + Math.min(48, dragRect.height * 0.18)
-    });
+    return getInsertionIndexFromBlockRects(
+      targetBlocks,
+      getDragCenterPoint(dragRect) ?? {
+        x: dragRect.left,
+        y: dragRect.top
+      }
+    );
   }
 
   return pointer ? getInsertionIndexFromBlockRects(targetBlocks, pointer) : null;
@@ -2346,7 +2022,7 @@ function findAdminSectionGridElement(sectionId: string, pointer?: Point | null, 
   );
   if (candidates.length <= 1) return candidates[0] ?? null;
 
-  const intentPoint = getDragIntentPoint(pointer ?? null, dragRect ?? null) ?? pointer ?? null;
+  const intentPoint = pointer ?? getDragCenterPoint(dragRect ?? null);
   if (!intentPoint) return candidates[0] ?? null;
 
   return candidates
@@ -2427,32 +2103,6 @@ function getInsertionIndexFromBlockRects(targetBlocks: Block[], pointer: Point) 
   return targetBlocks.length;
 }
 
-function SortableSection({
-  section,
-  children
-}: {
-  section: Section;
-  children: (props: {
-    sectionHandleProps: React.HTMLAttributes<HTMLButtonElement>;
-    sectionContainerProps: React.HTMLAttributes<HTMLDivElement> & { ref: (node: HTMLDivElement | null) => void };
-  }) => React.ReactNode;
-}) {
-  const { attributes, listeners, setNodeRef, isDragging } = useSortable({
-    id: `section-order:${section.id}`
-  });
-  return (
-    <Fragment>
-      {children({
-        sectionHandleProps: { ...attributes, ...listeners } as React.HTMLAttributes<HTMLButtonElement>,
-        sectionContainerProps: {
-          ref: setNodeRef,
-          className: cn("rounded-[20px] transition-opacity duration-150", isDragging ? "relative z-20 opacity-30" : "")
-        }
-      })}
-    </Fragment>
-  );
-}
-
 function EditableSection({
   section,
   contentGroupId,
@@ -2496,7 +2146,8 @@ function EditableSection({
   hideHeader?: boolean;
   showDragPreview?: boolean;
 }) {
-  const { setNodeRef } = useDroppable({ id: `section:${section.id}` });
+  const droppableId = contentGroupId ? `content-group:${contentGroupId}` : `section:${section.id}`;
+  const { setNodeRef } = useDroppable({ id: droppableId });
   const isSameSectionPreview =
     showDragPreview &&
     Boolean(dragPreviewBlock) &&
@@ -2546,6 +2197,7 @@ function EditableSection({
     <section
       ref={setNodeRef}
       data-admin-section-id={section.id}
+      data-admin-droppable-id={droppableId}
       className="admin-grid-container grid gap-6 rounded-[24px] p-2 transition"
     >
       {hideHeader ? null : (
@@ -3460,51 +3112,6 @@ function ProfileQuickForm({ profile, onPatch }: { profile: Profile; onPatch: (pa
         <Input value={profile.tags.join(", ")} onChange={(event) => onPatch({ tags: event.target.value.split(",").map((tag) => tag.trim()).filter(Boolean) })} />
       </Field>
       <MediaUploader folder="avatar" onUploaded={(url) => onPatch({ avatarUrl: url })} />
-    </div>
-  );
-}
-
-function SectionQuickForm({ section, onPatch }: { section?: Section; onPatch: (patch: Partial<Section>) => void }) {
-  if (!section) return null;
-  return (
-    <div className="grid gap-5 text-[#333]">
-      <div className="grid gap-3">
-      <Field label="标题/title">
-        <Input value={section.title} onChange={(event) => onPatch({ title: event.target.value })} />
-      </Field>
-      <Field label="Emoji / 后缀">
-        <Input value={section.emoji ?? ""} onChange={(event) => onPatch({ emoji: event.target.value })} />
-      </Field>
-      <Field label="描述/description">
-        <Textarea
-          value={section.description ?? ""}
-          onChange={(event) => onPatch({ description: event.target.value })}
-          className="min-h-28"
-        />
-      </Field>
-      </div>
-      <div className="grid gap-3 rounded-[18px] border border-[#EAEAEA] bg-[#FAFAFA] p-3">
-        <div className="grid gap-3 md:grid-cols-2">
-        <Field label="标题对齐/title align">
-          <Select value={section.titleAlign} onChange={(event) => onPatch({ titleAlign: event.target.value as Section["titleAlign"] })}>
-            <option value="left">left</option>
-            <option value="center">center</option>
-            <option value="right">right</option>
-          </Select>
-        </Field>
-        <Field label="标题大小/title size">
-          <Select value={section.titleSize} onChange={(event) => onPatch({ titleSize: event.target.value as Section["titleSize"] })}>
-            <option value="sm">sm</option>
-            <option value="md">md</option>
-            <option value="lg">lg</option>
-          </Select>
-        </Field>
-        </div>
-        <label className="flex items-center gap-2 text-sm text-[#475569]">
-          <Checkbox checked={section.isVisible} onChange={(event) => onPatch({ isVisible: event.target.checked })} />
-          显示/visible
-        </label>
-      </div>
     </div>
   );
 }
