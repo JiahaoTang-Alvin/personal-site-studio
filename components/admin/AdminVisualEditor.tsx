@@ -1000,6 +1000,7 @@ export function AdminVisualEditor({ initialConfig }: { initialConfig: SiteConfig
                       const nodes: React.ReactNode[] = [];
                       let contentCursor = 0;
                       let didRenderTextPreview = false;
+                      let didRenderGridPreview = false;
 
                       function pushTextPreview(position: number) {
                         if (!activeDragBlock || !isSectionTextBlock(activeDragBlock)) return;
@@ -1007,6 +1008,50 @@ export function AdminVisualEditor({ initialConfig }: { initialConfig: SiteConfig
                         if (activeTextPreviewContentIndex !== position) return;
                         didRenderTextPreview = true;
                         nodes.push(<TextBlockDropPreview key={`text-block-preview:${activeDragBlock.id}:${position}`} block={activeDragBlock} />);
+                      }
+
+                      function pushStandaloneGridPreview(position: number) {
+                        const previewContentIndex = dragPreviewPlacement?.targetContentIndex;
+                        if (!activeDragBlock || isSectionTextBlock(activeDragBlock)) return;
+                        if (didRenderGridPreview) return;
+                        if (dragPreviewPlacement?.blockId !== activeDragBlock.id) return;
+                        if (dragPreviewPlacement.targetSectionId !== topLevelBlockSectionId) return;
+                        if (previewContentIndex !== position) return;
+
+                        didRenderGridPreview = true;
+                        nodes.push(
+                          <EditableSection
+                            key={`block-preview:${activeDragBlock.id}:${position}`}
+                            section={topLevelSection}
+                            contentGroupId={`block-preview:${activeDragBlock.id}:${position}`}
+                            blocks={[]}
+                            onEditSection={() => undefined}
+                            onDeleteSection={() => undefined}
+                            onEditBlock={(blockId) => setModal({ type: "block", blockId })}
+                            onDeleteBlock={deleteBlock}
+                            onSelectBlock={setSelectedBlockId}
+                            device={editorDevice}
+                            activeDragBlockId={activeDragBlockId}
+                            dragPreviewBlock={activeDragBlock}
+                            dragPreviewPlacement={{ ...dragPreviewPlacement, targetIndex: 0 }}
+                            onResizeBlock={patchBlockSizeForDevice}
+                            onResizePreview={setResizePreviewSize}
+                            resizeDrafts={resizeDrafts}
+                            onResizeDraft={(blockId, size) =>
+                              setResizeDrafts((current) => {
+                                if (!size) {
+                                  const next = { ...current };
+                                  delete next[blockId];
+                                  return next;
+                                }
+                                return { ...current, [blockId]: size };
+                              })
+                            }
+                            sectionHandleProps={{}}
+                            hideHeader
+                            showDragPreview
+                          />
+                        );
                       }
 
                       for (const item of editorContentItems) {
@@ -1020,9 +1065,13 @@ export function AdminVisualEditor({ initialConfig }: { initialConfig: SiteConfig
                             !isSectionTextBlock(activeDragBlock) &&
                             dragPreviewPlacement?.blockId === activeDragBlock.id &&
                             dragPreviewPlacement.targetSectionId === topLevelBlockSectionId &&
+                            !didRenderGridPreview &&
                             previewContentIndex !== undefined &&
                             previewContentIndex >= contentCursor &&
                             previewContentIndex <= contentCursor + contentBlocks.length;
+                          if (shouldShowGridPreview) {
+                            didRenderGridPreview = true;
+                          }
 
                           nodes.push(
                             <EditableSection
@@ -1068,6 +1117,7 @@ export function AdminVisualEditor({ initialConfig }: { initialConfig: SiteConfig
                           continue;
                         }
 
+                        pushStandaloneGridPreview(contentCursor);
                         nodes.push(
                           <SortableTextBlock
                             key={item.id}
@@ -1089,6 +1139,7 @@ export function AdminVisualEditor({ initialConfig }: { initialConfig: SiteConfig
                       }
 
                       pushTextPreview(contentCursor);
+                      pushStandaloneGridPreview(contentCursor);
                       return nodes;
                     })()}
                   </SortableContext>
