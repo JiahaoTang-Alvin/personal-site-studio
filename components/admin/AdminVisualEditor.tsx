@@ -1065,8 +1065,7 @@ export function AdminVisualEditor({ initialConfig }: { initialConfig: SiteConfig
                               dragPreviewPlacement={
                                 shouldShowGridPreview && dragPreviewPlacement
                                   ? {
-                                      blockId: dragPreviewPlacement.blockId,
-                                      targetSectionId: dragPreviewPlacement.targetSectionId,
+                                      ...dragPreviewPlacement,
                                       targetIndex: (previewContentIndex ?? contentCursor) - contentCursor
                                     }
                                   : null
@@ -1633,6 +1632,11 @@ function getTopLevelContentTargetFromDrag(
     return { targetContentIndex: index + (insertAfter ? 1 : 0), targetIndex: 0 };
   }
 
+  const gapTargetIndex = getContentGapTargetIndexFromPointer(flowItems, intentPoint);
+  if (gapTargetIndex !== null) {
+    return { targetContentIndex: gapTargetIndex, targetIndex: 0 };
+  }
+
   return null;
 }
 
@@ -1726,6 +1730,42 @@ function getContentTargetIndexFromPointer(flowItems: ContentFlowItem[], pointer:
   }
 
   return flowItems.length;
+}
+
+function getContentGapTargetIndexFromPointer(flowItems: ContentFlowItem[], pointer: Point) {
+  const measuredItems = flowItems
+    .map((item, index) => {
+      const rect = findAdminBlockElement(item.id)?.getBoundingClientRect();
+      return rect ? { index, rect } : null;
+    })
+    .filter((item): item is { index: number; rect: DOMRect } => item !== null)
+    .sort((a, b) => (Math.abs(a.rect.top - b.rect.top) > 8 ? a.rect.top - b.rect.top : a.rect.left - b.rect.left));
+
+  if (measuredItems.length === 0) return null;
+
+  const first = measuredItems[0];
+  const last = measuredItems[measuredItems.length - 1];
+  const topBand = Math.max(64, first.rect.height * 0.85);
+  const bottomBand = Math.max(64, last.rect.height * 0.85);
+  if (pointer.y >= first.rect.top - topBand && pointer.y < first.rect.top + first.rect.height / 2) {
+    return first.index;
+  }
+  if (pointer.y > last.rect.top + last.rect.height / 2 && pointer.y <= last.rect.bottom + bottomBand) {
+    return flowItems.length;
+  }
+
+  for (let index = 0; index < measuredItems.length - 1; index += 1) {
+    const current = measuredItems[index];
+    const next = measuredItems[index + 1];
+    const gapTop = current.rect.bottom;
+    const gapBottom = next.rect.top;
+    if (gapBottom <= gapTop) continue;
+    if (pointer.y >= gapTop && pointer.y <= gapBottom) {
+      return next.index;
+    }
+  }
+
+  return null;
 }
 
 function getPlacementFromDrag({
