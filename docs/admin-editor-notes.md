@@ -84,6 +84,55 @@ This document records the current admin editor behavior and the main implementat
   - `getInsertionIndexFromPointer`
   - `BlockDropPreview`
 
+## Drag and drop guardrails
+
+The current drag behavior is intentionally split into three separate layers. Keep them separate when editing this file:
+
+- `DragOverlayBlockPreview` and `DragOverlayTextBlockPreview` are pointer-following visuals only. They should not take part in layout, sorting, hit testing, or saved placement.
+- `BlockDropPreview`, `TextBlockDropPreview`, and `StandaloneBlockDropPreview` are target-location previews. They show where mouseup will place the block.
+- The real sortable node stays mounted for dnd-kit while dragging. When a target preview is active, the original square card can be visually hidden or removed from normal flow, but the sortable identity should stay stable.
+
+Text block dragging has one extra rule: render at most one text-block drop preview for the active drag. The `didRenderTextPreview` guard prevents the old bug where long-pressing and moving a text block left behind multiple blue preview copies after drop.
+
+Standalone top-level previews are for positions such as the very top of the content list, the gap between two text blocks, or an empty card group. They must stay purely visual:
+
+- Do not add `useDroppable` to `StandaloneBlockDropPreview`.
+- Do not nest a `SortableContext` inside the standalone preview.
+- Do not put `data-admin-section-grid-id` on the standalone preview shell.
+
+Those attributes make the preview become a live drag target, which can change dnd-kit's `over` result during the same drag and cause flicker, wrong preview positions, or page-level drag crashes.
+
+Square block reordering depends on measured rectangles captured before the preview mutates layout:
+
+- `captureAdminBlockRects` snapshots block rects at drag start.
+- `getMeasuredAdminBlockRect` prefers the snapshot while dragging.
+- `clearAdminBlockRectsSnapshot` clears the snapshot after drag end/cancel.
+
+This prevents the dashed preview itself from changing the hit-test geometry while the pointer is still moving. Without the snapshot, dragging a left-column square card toward the right half of a right-column card can bounce the preview back to the left because the preview-induced reflow changes the rects being tested.
+
+When the preview is inside an existing card grid, preview placement and actual drop placement must use the same data:
+
+- `dragPreviewPlacement.targetIndex` decides the content insertion point.
+- `dragPreviewPlacement.columnStart` and `dragPreviewPlacement.rowStart` decide the active device grid cell.
+- `BlockDropPreview` receives those placement values so the preview appears in the same cell the drop will write.
+- Non-preview cards pass through `withoutBlockPlacementForDevice` during preview compaction. This lets the temporary preview own the target cell instead of being pulled back by another card's saved placement.
+
+Do not change one of those values without changing the drop commit path in the same way. The editor should never show a preview in one place and then drop the block somewhere else.
+
+Pointer intent rules:
+
+- On a target square card, the pointer's left half means insert before that card and the right half means insert after it.
+- On top-level content gaps, `targetContentIndex` decides whether the square card lands above the first text block, between two text blocks, or below a text block.
+- Text blocks are content-flow items. Square cards are grouped top-level blocks. A text block never owns nearby cards.
+
+Regression checks after touching drag logic:
+
+- Drag a square card from the left column to the right half of the rightmost card; the preview should stay on the right and the drop should match it.
+- Drag a square card to the very top above the first text block; the preview should appear there before mouseup and no page crash should occur.
+- Drag a square card between two text blocks when no square cards are already between them; the standalone preview should appear and the drop should match.
+- Drag a text block by long-press or mouse drag; after drop, no extra blue/gray preview copy should remain.
+- Drag within a card grid and across text blocks; the page should not show `This page couldn't load`.
+
 ## Profile editing
 
 - The profile card is edited inline instead of through one large profile modal.
