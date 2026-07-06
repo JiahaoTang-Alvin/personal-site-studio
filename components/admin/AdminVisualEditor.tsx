@@ -2284,7 +2284,9 @@ function EditableSection({
       const block =
         item.type === "preview" && item.placement
           ? { ...resizedBlock, placements: { ...resizedBlock.placements, [device]: item.placement } }
-          : resizedBlock;
+          : shouldRenderDropPreview
+            ? withoutBlockPlacementForDevice(resizedBlock, device)
+            : resizedBlock;
       return {
         id: item.type === "preview" ? blockDropPreviewId : item.block.id,
         block
@@ -2442,6 +2444,14 @@ function TextBlockDropPreview({ block }: { block: Block }) {
       <BlockCard block={block} disableActions withLayout={false} className="min-h-0 opacity-50" />
     </div>
   );
+}
+
+function withoutBlockPlacementForDevice(block: Block, device: LayoutDevice): Block {
+  if (!block.placements?.[device]) return block;
+
+  const placements = { ...block.placements };
+  delete placements[device];
+  return { ...block, placements };
 }
 
 function SortableTextBlock({
