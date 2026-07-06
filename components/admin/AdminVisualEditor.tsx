@@ -2148,13 +2148,7 @@ function EditableSection({
 }) {
   const droppableId = contentGroupId ? `content-group:${contentGroupId}` : `section:${section.id}`;
   const { setNodeRef } = useDroppable({ id: droppableId });
-  const isSameSectionPreview =
-    showDragPreview &&
-    Boolean(dragPreviewBlock) &&
-    dragPreviewPlacement?.targetSectionId === section.id &&
-    dragPreviewBlock?.sectionId === section.id;
-  const renderedBlocks =
-    isSameSectionPreview && dragPreviewBlock ? blocks.filter((block) => block.id !== dragPreviewBlock.id) : blocks;
+  const renderedBlocks = blocks;
   const previewIndex =
     showDragPreview && dragPreviewBlock && dragPreviewPlacement?.targetSectionId === section.id
       ? Math.max(0, Math.min(dragPreviewPlacement.targetIndex, renderedBlocks.length))
@@ -2273,24 +2267,6 @@ function EditableSection({
                 />
               )
             )}
-            {isSameSectionPreview && dragPreviewBlock ? (
-              <SortableBlock
-                block={dragPreviewBlock}
-                displaySize={resizeDrafts[dragPreviewBlock.id]?.size ?? getBlockSize(dragPreviewBlock, device)}
-                device={device}
-                isDragOverlayActive={activeDragBlockId === dragPreviewBlock.id}
-                disableSortableTransform={activeDragBlockId !== null}
-                layoutStyle={undefined}
-                hideOriginalDuringDrag
-                removeFromFlowDuringDrag
-                onEdit={() => onEditBlock(dragPreviewBlock.id)}
-                onDelete={() => onDeleteBlock(dragPreviewBlock.id)}
-                onSelect={() => onSelectBlock(dragPreviewBlock.id)}
-                onResize={(size) => onResizeBlock(dragPreviewBlock.id, size)}
-                onResizePreview={onResizePreview}
-                onResizeDraft={(size) => onResizeDraft(dragPreviewBlock.id, size)}
-              />
-            ) : null}
           </div>
         </SortableContext>
       ) : null}
