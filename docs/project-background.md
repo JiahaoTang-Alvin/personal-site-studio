@@ -48,6 +48,8 @@ Variants are role or audience versions of the same personal site, such as a deve
 
 The admin editor keeps a `baseConfig` plus a materialized editing view. Switching the top-bar version or language calls `materializeSiteConfig(...)`; edits to non-main content write back through `writeSiteContentSnapshot(...)` into `contentVariants`. Global project settings, the language list, the variant list, import, and export still belong to `baseConfig`.
 
+The top-bar language picker is filtered by the selected variant. The main locale is always available; other enabled languages appear only when that selected variant has its own `variantId:locale` snapshot. This prevents a version with no translated content from showing every global language option.
+
 Public routing uses hidden short access codes:
 
 - `app/[accessCode]/route.ts` checks whether the path matches an enabled variant access code such as `/u1`.

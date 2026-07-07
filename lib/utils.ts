@@ -106,6 +106,32 @@ export function getEnabledLanguages(config: SiteConfig): SiteLanguage[] {
   return enabled.length ? enabled : languages.slice(0, 1);
 }
 
+export function getAvailableLanguagesForVariant(config: SiteConfig, variantId: string): SiteLanguage[] {
+  const enabledLanguages = getEnabledLanguages(config);
+  const mainLocale = getMainLocale(config);
+  const mainLanguage =
+    enabledLanguages.find((language) => language.code === mainLocale) ??
+    config.settings.languages.languages.find((language) => language.code === mainLocale) ?? {
+      code: mainLocale,
+      label: mainLocale,
+      isEnabled: true,
+      sortOrder: 0
+    };
+  const availableCodes = new Set<string>([mainLocale]);
+
+  for (const language of enabledLanguages) {
+    if (language.code === mainLocale) continue;
+    if (config.contentVariants?.[getContentVariantKey(variantId, language.code)]) {
+      availableCodes.add(language.code);
+    }
+  }
+
+  const availableLanguages = enabledLanguages.filter((language) => availableCodes.has(language.code));
+  return availableLanguages.some((language) => language.code === mainLocale)
+    ? availableLanguages
+    : [mainLanguage, ...availableLanguages].sort(bySortOrder);
+}
+
 export function getEnabledVariants(config: SiteConfig): SiteVariant[] {
   const variants = config.settings.variants.variants.length
     ? config.settings.variants.variants

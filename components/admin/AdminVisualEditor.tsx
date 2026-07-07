@@ -63,7 +63,7 @@ import { validateSiteConfig } from "@/lib/validators";
 import {
   bySortOrder,
   buildRenderModel,
-  getEnabledLanguages,
+  getAvailableLanguagesForVariant,
   getEnabledVariants,
   getMainLocale,
   getMainVariantId,
@@ -283,12 +283,15 @@ export function AdminVisualEditor({ initialConfig }: { initialConfig: SiteConfig
   const dragPreviewPlacementRef = useRef<DragPreviewPlacement | null>(null);
   const dragPreviewSyncFrameRef = useRef<number | null>(null);
   const validation = useMemo(() => validateSiteConfig(baseConfig), [baseConfig]);
-  const enabledLanguages = useMemo(() => getEnabledLanguages(baseConfig), [baseConfig]);
   const enabledVariants = useMemo(() => getEnabledVariants(baseConfig), [baseConfig]);
   const resolvedActiveVariantId = enabledVariants.some((variant) => variant.id === activeVariantId)
     ? activeVariantId
     : getMainVariantId(baseConfig);
-  const resolvedActiveLocale = enabledLanguages.some((language) => language.code === activeLocale)
+  const availableLanguages = useMemo(
+    () => getAvailableLanguagesForVariant(baseConfig, resolvedActiveVariantId),
+    [baseConfig, resolvedActiveVariantId]
+  );
+  const resolvedActiveLocale = availableLanguages.some((language) => language.code === activeLocale)
     ? activeLocale
     : getMainLocale(baseConfig);
   const activeVariantIdRef = useRef(resolvedActiveVariantId);
@@ -303,7 +306,7 @@ export function AdminVisualEditor({ initialConfig }: { initialConfig: SiteConfig
     useSensor(MouseSensor, { activationConstraint: { distance: 6 } }),
     useSensor(TouchSensor, { activationConstraint: { delay: 320, tolerance: 10 } })
   );
-  const shouldShowLanguagePicker = baseConfig.settings.languages.isEnabled && enabledLanguages.length > 1;
+  const shouldShowLanguagePicker = baseConfig.settings.languages.isEnabled && availableLanguages.length > 1;
   const shouldShowVariantPicker = baseConfig.settings.variants.isEnabled && enabledVariants.length > 1;
   const renderModel = useMemo(() => buildRenderModel(config), [config]);
   const blockSectionById = useMemo(() => {
@@ -1100,7 +1103,7 @@ export function AdminVisualEditor({ initialConfig }: { initialConfig: SiteConfig
                 className="h-9 w-[112px] text-xs"
                 aria-label="选择语言"
               >
-                {enabledLanguages.map((language) => (
+                {availableLanguages.map((language) => (
                   <option key={language.code} value={language.code}>
                     {language.label}
                   </option>
