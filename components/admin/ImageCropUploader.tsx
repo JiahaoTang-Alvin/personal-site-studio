@@ -253,20 +253,15 @@ export function ImageCropUploader({
               }
             }}
             className={cn(
-              "group relative grid min-h-44 cursor-pointer place-items-center overflow-hidden rounded-[28px] border border-dashed border-[#C7D2E4] bg-[#F8FAFC] text-center outline-none transition",
+              "group relative grid aspect-square w-full cursor-pointer place-items-center overflow-hidden rounded-[28px] border border-dashed border-[#C7D2E4] bg-[#F8FAFC] text-center outline-none transition",
               "hover:border-[#1677FF]/60 hover:bg-[#F3F8FF] focus:border-[#1677FF] focus:ring-4 focus:ring-[#1677FF]/10",
               previewClassName
             )}
           >
             {value ? (
-              <img src={value} alt="" className="absolute inset-0 h-full w-full object-cover" />
+              <img src={value} alt="" className="absolute inset-0 h-full w-full object-cover transition group-hover:opacity-35 group-focus:opacity-35" />
             ) : null}
-            <div
-              className={cn(
-                "absolute inset-3 rounded-[24px] border border-dashed border-[#BFD7F5] bg-white/88 transition",
-                value ? "opacity-0 backdrop-blur-[2px] group-hover:opacity-100 group-focus:opacity-100" : "opacity-100"
-              )}
-            />
+            {value ? <div className="absolute inset-0 bg-white/70 opacity-0 transition group-hover:opacity-100 group-focus:opacity-100" /> : null}
             <div
               className={cn(
                 "relative z-10 grid justify-items-center gap-2 px-5 text-[#5B7896] transition",
@@ -299,18 +294,20 @@ export function ImageCropUploader({
             className="hidden"
             onChange={(event) => chooseFile(event.target.files?.[0] ?? null)}
           />
-          <label
-            htmlFor={inputId}
-            className={cn(
-              "inline-flex h-10 cursor-pointer items-center justify-center gap-2 rounded-full border border-white/15 bg-black px-4 text-sm font-semibold text-white transition hover:bg-black/85",
-              buttonIconOnly && "h-9 w-9 px-0",
-              buttonClassName
-            )}
-            title={buttonText}
-          >
-            <ImageUp className="h-4 w-4" />
-            {buttonIconOnly ? null : buttonText}
-          </label>
+          {presentation === "coverDropzone" ? null : (
+            <label
+              htmlFor={inputId}
+              className={cn(
+                "inline-flex h-10 cursor-pointer items-center justify-center gap-2 rounded-full border border-white/15 bg-black px-4 text-sm font-semibold text-white transition hover:bg-black/85",
+                buttonIconOnly && "h-9 w-9 px-0",
+                buttonClassName
+              )}
+              title={buttonText}
+            >
+              <ImageUp className="h-4 w-4" />
+              {buttonIconOnly ? null : buttonText}
+            </label>
+          )}
           {onClear && value ? (
             <button type="button" onClick={onClear} className="text-sm font-medium text-[#7A8190] hover:text-red-500">
               清除
