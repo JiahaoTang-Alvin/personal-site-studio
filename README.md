@@ -98,7 +98,7 @@ The admin top bar uses `settings.projectName`. The public page metadata uses:
 - `settings.siteUrl`
 - optional SEO overrides from `settings.seoTitle`, `settings.seoDescription`, `settings.seoCanonicalUrl`, and `settings.seoOgImage`
 
-The root `profile`, `blocks`, `theme`, and metadata are the main version/main language. Extra language or audience versions are stored in `contentVariants` and fall back to the main content when a snapshot has not been edited yet.
+The root `profile`, `blocks`, `theme`, and metadata are the main version/main language. Extra audience versions are stored in `contentVariants` and fall back to the main content when a snapshot has not been edited yet. Languages are attached under each version; adding a language to a version creates that version/language snapshot.
 
 Hidden variant links use short paths such as `/u1`. A valid access code stores the selected variant in an HTTP-only cookie, redirects back to `/`, and keeps that version active for 10 homepage visits.
 
@@ -124,7 +124,7 @@ images/qrcode
 3. Enable Vercel Blob for the project.
 4. Deploy.
 5. Visit `/admin/login` and sign in with the password used to create `ADMIN_PASSWORD_HASH`.
-6. Open **项目设置** in the admin editor and set the project name, public site title, description, public URL, SEO fields, language options, and variant options.
+6. Open **项目设置** in the admin editor and set the project name, public site title, description, public URL, SEO fields, language library, versions, and per-version language choices.
 7. Save once to persist the production config to Vercel Blob.
 
 ## Config Import and Export

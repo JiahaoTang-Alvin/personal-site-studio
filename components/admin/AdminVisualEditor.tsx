@@ -64,9 +64,11 @@ import {
   bySortOrder,
   buildRenderModel,
   getAvailableLanguagesForVariant,
+  getContentVariantKey,
   getEnabledVariants,
   getMainLocale,
   getMainVariantId,
+  getSiteContentSnapshot,
   getNextContentSortOrder,
   isSectionTextBlock,
   materializeSiteConfig,
@@ -104,7 +106,7 @@ type ModalState =
   | { type: "project-settings" }
   | null;
 
-type ProjectSettingsPanel = "basic" | "web" | "seo" | "languages" | "variants" | "appearance" | "config";
+type ProjectSettingsPanel = "basic" | "web" | "seo" | "audiences" | "appearance" | "config";
 
 type BlockTemplate = {
   label: string;
@@ -3844,12 +3846,17 @@ function ProjectSettingsForm({
 
   function updateLanguage(code: string, patch: Partial<SiteConfig["settings"]["languages"]["languages"][number]>) {
     const nextCode = patch.code ?? code;
-    patchSettings({
-      languages: {
-        ...settings.languages,
-        mainLocale: settings.languages.mainLocale === code ? nextCode : settings.languages.mainLocale,
-        languages: settings.languages.languages.map((language) => (language.code === code ? { ...language, ...patch } : language))
-      }
+    onChange({
+      ...config,
+      settings: {
+        ...settings,
+        languages: {
+          ...settings.languages,
+          mainLocale: settings.languages.mainLocale === code ? nextCode : settings.languages.mainLocale,
+          languages: settings.languages.languages.map((language) => (language.code === code ? { ...language, ...patch } : language))
+        }
+      },
+      contentVariants: nextCode === code ? config.contentVariants : renameLocaleContentKeys(config.contentVariants ?? {}, code, nextCode)
     });
   }
 
@@ -3866,23 +3873,33 @@ function ProjectSettingsForm({
 
   function removeLanguage(code: string) {
     const nextLanguages = settings.languages.languages.filter((language) => language.code !== code);
-    patchSettings({
-      languages: {
-        ...settings.languages,
-        mainLocale: settings.languages.mainLocale === code ? nextLanguages[0]?.code ?? "zh-CN" : settings.languages.mainLocale,
-        languages: nextLanguages.length ? normalizeSortOrder(nextLanguages) : settings.languages.languages
-      }
+    onChange({
+      ...config,
+      settings: {
+        ...settings,
+        languages: {
+          ...settings.languages,
+          mainLocale: settings.languages.mainLocale === code ? nextLanguages[0]?.code ?? "zh-CN" : settings.languages.mainLocale,
+          languages: nextLanguages.length ? normalizeSortOrder(nextLanguages) : settings.languages.languages
+        }
+      },
+      contentVariants: removeLocaleContentKeys(config.contentVariants ?? {}, code)
     });
   }
 
   function updateVariant(id: string, patch: Partial<SiteConfig["settings"]["variants"]["variants"][number]>) {
     const nextId = patch.id ?? id;
-    patchSettings({
-      variants: {
-        ...settings.variants,
-        mainVariantId: settings.variants.mainVariantId === id ? nextId : settings.variants.mainVariantId,
-        variants: settings.variants.variants.map((variant) => (variant.id === id ? { ...variant, ...patch } : variant))
-      }
+    onChange({
+      ...config,
+      settings: {
+        ...settings,
+        variants: {
+          ...settings.variants,
+          mainVariantId: settings.variants.mainVariantId === id ? nextId : settings.variants.mainVariantId,
+          variants: settings.variants.variants.map((variant) => (variant.id === id ? { ...variant, ...patch } : variant))
+        }
+      },
+      contentVariants: nextId === id ? config.contentVariants : renameVariantContentKeys(config.contentVariants ?? {}, id, nextId)
     });
   }
 
@@ -3902,11 +3919,48 @@ function ProjectSettingsForm({
 
   function removeVariant(id: string) {
     const nextVariants = settings.variants.variants.filter((variant) => variant.id !== id);
-    patchSettings({
-      variants: {
-        ...settings.variants,
-        mainVariantId: settings.variants.mainVariantId === id ? nextVariants[0]?.id ?? "main" : settings.variants.mainVariantId,
-        variants: nextVariants.length ? normalizeSortOrder(nextVariants) : settings.variants.variants
+    onChange({
+      ...config,
+      settings: {
+        ...settings,
+        variants: {
+          ...settings.variants,
+          mainVariantId: settings.variants.mainVariantId === id ? nextVariants[0]?.id ?? "main" : settings.variants.mainVariantId,
+          variants: nextVariants.length ? normalizeSortOrder(nextVariants) : settings.variants.variants
+        }
+      },
+      contentVariants: removeVariantContentKeys(config.contentVariants ?? {}, id)
+    });
+  }
+
+  function setVariantLanguage(variantId: string, locale: string, isEnabled: boolean) {
+    if (locale === settings.languages.mainLocale) return;
+    const key = getContentVariantKey(variantId, locale);
+
+    if (!isEnabled) {
+      if (!window.confirm("移除这个语言版本？对应的编辑内容也会一起删除。")) return;
+      const nextContentVariants = { ...(config.contentVariants ?? {}) };
+      delete nextContentVariants[key];
+      onChange({ ...config, contentVariants: nextContentVariants });
+      return;
+    }
+
+    const sourceConfig = materializeSiteConfig(config, variantId, settings.languages.mainLocale);
+    onChange({
+      ...config,
+      settings: {
+        ...settings,
+        languages: {
+          ...settings.languages,
+          isEnabled: true,
+          languages: settings.languages.languages.map((language) =>
+            language.code === locale ? { ...language, isEnabled: true } : language
+          )
+        }
+      },
+      contentVariants: {
+        ...(config.contentVariants ?? {}),
+        [key]: getSiteContentSnapshot(sourceConfig)
       }
     });
   }
@@ -3915,8 +3969,7 @@ function ProjectSettingsForm({
     { id: "basic", label: "基础与编辑器", description: "项目名称与编辑器基础行为" },
     { id: "web", label: "网页与域名", description: "公开页面标题、描述和 URL" },
     { id: "seo", label: "SEO", description: "搜索与分享卡片信息" },
-    { id: "languages", label: "多语言", description: "语言展示与主语言" },
-    { id: "variants", label: "多版本", description: "隐藏入口和访客版本" },
+    { id: "audiences", label: "多语言&多版本", description: "版本下面添加语言" },
     { id: "appearance", label: "外观", description: "颜色、字体和展示开关" },
     { id: "config", label: "配置导入导出", description: "JSON 备份和恢复" }
   ];
@@ -4003,42 +4056,76 @@ function ProjectSettingsForm({
           </section>
         ) : null}
 
-        {activePanel === "languages" ? (
+        {activePanel === "audiences" ? (
           <section className="grid gap-4">
             <div className="flex items-center justify-between gap-3">
               <div>
-                <p className="mt-1 text-sm text-[#64748B]">启用两个以上语言后，编辑器顶部会出现语言切换。</p>
+                <p className="mt-1 text-sm text-[#64748B]">先配置版本，再在每个版本下面添加需要编辑和展示的语言。</p>
               </div>
-              <Button type="button" variant="secondary" size="sm" onClick={addLanguage}>
+              <Button type="button" variant="secondary" size="sm" onClick={addVariant}>
                 <Plus className="h-4 w-4" />
-                添加
+                添加版本
               </Button>
             </div>
-            <label className="flex items-center gap-2 text-sm text-[#475569]">
-              <Checkbox
-                checked={settings.languages.isEnabled}
-                onChange={(event) => patchSettings({ languages: { ...settings.languages, isEnabled: event.target.checked } })}
-              />
-              开启多语言/multilingual
-            </label>
-            <Field label="主语言/main language">
-              <Select
-                value={settings.languages.mainLocale}
-                onChange={(event) => patchSettings({ languages: { ...settings.languages, mainLocale: event.target.value } })}
-              >
-                {settings.languages.languages.map((language) => (
-                  <option key={language.code} value={language.code}>
-                    {language.label} ({language.code})
-                  </option>
-                ))}
-              </Select>
-            </Field>
-            <div className="grid gap-2">
+
+            <div className="grid gap-3 rounded-xl border border-[#EAEAEA] bg-[#FAFAFA] p-3">
+              <div className="flex flex-wrap gap-4 text-sm text-[#475569]">
+                <label className="flex items-center gap-2">
+                  <Checkbox
+                    checked={settings.variants.isEnabled}
+                    onChange={(event) => patchSettings({ variants: { ...settings.variants, isEnabled: event.target.checked } })}
+                  />
+                  开启多版本/variants
+                </label>
+                <label className="flex items-center gap-2">
+                  <Checkbox
+                    checked={settings.languages.isEnabled}
+                    onChange={(event) => patchSettings({ languages: { ...settings.languages, isEnabled: event.target.checked } })}
+                  />
+                  开启多语言/multilingual
+                </label>
+              </div>
+              <div className="grid gap-3 md:grid-cols-2">
+                <Field label="主版本/main version">
+                  <Select
+                    value={settings.variants.mainVariantId}
+                    onChange={(event) => patchSettings({ variants: { ...settings.variants, mainVariantId: event.target.value } })}
+                  >
+                    {settings.variants.variants.map((variant) => (
+                      <option key={variant.id} value={variant.id}>
+                        {variant.name}
+                      </option>
+                    ))}
+                  </Select>
+                </Field>
+                <Field label="主语言/main language">
+                  <Select
+                    value={settings.languages.mainLocale}
+                    onChange={(event) => patchSettings({ languages: { ...settings.languages, mainLocale: event.target.value } })}
+                  >
+                    {settings.languages.languages.map((language) => (
+                      <option key={language.code} value={language.code}>
+                        {language.label} ({language.code})
+                      </option>
+                    ))}
+                  </Select>
+                </Field>
+              </div>
+            </div>
+
+            <div className="grid gap-3">
+              <div className="flex items-center justify-between gap-3">
+                <p className="text-sm font-semibold text-[#111]">语言库</p>
+                <Button type="button" variant="secondary" size="sm" onClick={addLanguage}>
+                  <Plus className="h-4 w-4" />
+                  添加语言
+                </Button>
+              </div>
               {[...settings.languages.languages].sort(bySortOrder).map((language) => (
                 <div key={language.code} className="grid gap-2 rounded-xl border border-[#EAEAEA] p-3 md:grid-cols-[auto_0.8fr_1fr_auto]">
                   <label className="flex items-center gap-2 text-sm text-[#475569]">
                     <Checkbox checked={language.isEnabled} onChange={(event) => updateLanguage(language.code, { isEnabled: event.target.checked })} />
-                    展示
+                    可选
                   </label>
                   <Input value={language.code} onChange={(event) => updateLanguage(language.code, { code: event.target.value })} />
                   <Input value={language.label} onChange={(event) => updateLanguage(language.code, { label: event.target.value })} />
@@ -4054,62 +4141,58 @@ function ProjectSettingsForm({
                 </div>
               ))}
             </div>
-          </section>
-        ) : null}
 
-        {activePanel === "variants" ? (
-          <section className="grid gap-4">
-            <div className="flex items-center justify-between gap-3">
-              <div>
-                <p className="mt-1 text-sm text-[#64748B]">访问隐藏入口后会跳回主页，并保持该版本 10 次主页访问。</p>
-              </div>
-              <Button type="button" variant="secondary" size="sm" onClick={addVariant}>
-                <Plus className="h-4 w-4" />
-                添加
-              </Button>
-            </div>
-            <label className="flex items-center gap-2 text-sm text-[#475569]">
-              <Checkbox
-                checked={settings.variants.isEnabled}
-                onChange={(event) => patchSettings({ variants: { ...settings.variants, isEnabled: event.target.checked } })}
-              />
-              开启多版本/variants
-            </label>
-            <Field label="主版本/main version">
-              <Select
-                value={settings.variants.mainVariantId}
-                onChange={(event) => patchSettings({ variants: { ...settings.variants, mainVariantId: event.target.value } })}
-              >
-                {settings.variants.variants.map((variant) => (
-                  <option key={variant.id} value={variant.id}>
-                    {variant.name}
-                  </option>
-                ))}
-              </Select>
-            </Field>
-            <div className="grid gap-2">
+            <div className="grid gap-3">
               {[...settings.variants.variants].sort(bySortOrder).map((variant) => (
-                <div key={variant.id} className="grid gap-2 rounded-xl border border-[#EAEAEA] p-3 md:grid-cols-[auto_0.8fr_1fr_0.8fr_auto]">
-                  <label className="flex items-center gap-2 text-sm text-[#475569]">
-                    <Checkbox checked={variant.isEnabled} onChange={(event) => updateVariant(variant.id, { isEnabled: event.target.checked })} />
-                    启用
-                  </label>
-                  <Input value={variant.id} onChange={(event) => updateVariant(variant.id, { id: event.target.value })} />
-                  <Input value={variant.name} onChange={(event) => updateVariant(variant.id, { name: event.target.value })} />
-                  <Input
-                    value={variant.accessCode}
-                    placeholder={variant.id === settings.variants.mainVariantId ? "主版本留空" : "u1"}
-                    onChange={(event) => updateVariant(variant.id, { accessCode: event.target.value })}
-                  />
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => removeVariant(variant.id)}
-                    disabled={settings.variants.variants.length <= 1}
-                  >
-                    删除
-                  </Button>
+                <div key={variant.id} className="grid gap-3 rounded-xl border border-[#EAEAEA] p-3">
+                  <div className="grid gap-2 md:grid-cols-[auto_0.8fr_1fr_0.8fr_auto]">
+                    <label className="flex items-center gap-2 text-sm text-[#475569]">
+                      <Checkbox checked={variant.isEnabled} onChange={(event) => updateVariant(variant.id, { isEnabled: event.target.checked })} />
+                      启用
+                    </label>
+                    <Input value={variant.id} onChange={(event) => updateVariant(variant.id, { id: event.target.value })} />
+                    <Input value={variant.name} onChange={(event) => updateVariant(variant.id, { name: event.target.value })} />
+                    <Input
+                      value={variant.accessCode}
+                      placeholder={variant.id === settings.variants.mainVariantId ? "主版本留空" : "u1"}
+                      onChange={(event) => updateVariant(variant.id, { accessCode: event.target.value })}
+                    />
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => removeVariant(variant.id)}
+                      disabled={settings.variants.variants.length <= 1}
+                    >
+                      删除
+                    </Button>
+                  </div>
+                  <div className="grid gap-2">
+                    <p className="text-xs font-semibold text-[#64748B]">这个版本的语言</p>
+                    <div className="flex flex-wrap gap-2">
+                      {[...settings.languages.languages].sort(bySortOrder).map((language) => {
+                        const isMainLocale = language.code === settings.languages.mainLocale;
+                        const isChecked = isMainLocale || Boolean(config.contentVariants?.[getContentVariantKey(variant.id, language.code)]);
+                        return (
+                          <label
+                            key={`${variant.id}:${language.code}`}
+                            className={cn(
+                              "flex items-center gap-2 rounded-full border px-3 py-1.5 text-xs",
+                              isChecked ? "border-[#BFDBFE] bg-[#EFF6FF] text-[#1E3A5F]" : "border-[#EAEAEA] text-[#64748B]"
+                            )}
+                          >
+                            <Checkbox
+                              checked={isChecked}
+                              disabled={isMainLocale || !language.isEnabled}
+                              onChange={(event) => setVariantLanguage(variant.id, language.code, event.target.checked)}
+                            />
+                            {language.label}
+                            <span className="text-[#94A3B8]">{language.code}</span>
+                          </label>
+                        );
+                      })}
+                    </div>
+                  </div>
                 </div>
               ))}
             </div>
@@ -4199,6 +4282,42 @@ function ProjectSettingsForm({
 
 function normalizeBlocks(blocks: Block[]) {
   return blocks.map((block) => ({ ...block, sectionId: topLevelBlockSectionId }));
+}
+
+function renameVariantContentKeys(contentVariants: SiteConfig["contentVariants"], oldVariantId: string, nextVariantId: string) {
+  return Object.fromEntries(
+    Object.entries(contentVariants ?? {}).map(([key, snapshot]) => {
+      const [variantId, locale] = key.split(":");
+      return [variantId === oldVariantId ? getContentVariantKey(nextVariantId, locale ?? "") : key, snapshot];
+    })
+  );
+}
+
+function removeVariantContentKeys(contentVariants: SiteConfig["contentVariants"], variantIdToRemove: string) {
+  return Object.fromEntries(
+    Object.entries(contentVariants ?? {}).filter(([key]) => {
+      const [variantId] = key.split(":");
+      return variantId !== variantIdToRemove;
+    })
+  );
+}
+
+function renameLocaleContentKeys(contentVariants: SiteConfig["contentVariants"], oldLocale: string, nextLocale: string) {
+  return Object.fromEntries(
+    Object.entries(contentVariants ?? {}).map(([key, snapshot]) => {
+      const [variantId, locale] = key.split(":");
+      return [locale === oldLocale ? getContentVariantKey(variantId ?? "", nextLocale) : key, snapshot];
+    })
+  );
+}
+
+function removeLocaleContentKeys(contentVariants: SiteConfig["contentVariants"], localeToRemove: string) {
+  return Object.fromEntries(
+    Object.entries(contentVariants ?? {}).filter(([key]) => {
+      const [, locale] = key.split(":");
+      return locale !== localeToRemove;
+    })
+  );
 }
 
 function modalTitle(modal: NonNullable<ModalState>) {
