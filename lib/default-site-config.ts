@@ -262,18 +262,14 @@ export const defaultSiteConfig: SiteConfig = {
       isEnabled: false,
       mainLocale: "zh-CN",
       languages: [
-        { code: "zh-CN", label: "中文", isEnabled: true, sortOrder: 1 },
-        { code: "en", label: "English", isEnabled: false, sortOrder: 2 },
-        { code: "ja", label: "日本語", isEnabled: false, sortOrder: 3 }
+        { code: "zh-CN", label: "中文", isEnabled: true, sortOrder: 1 }
       ]
     },
     variants: {
       isEnabled: false,
       mainVariantId: "main",
       variants: [
-        { id: "main", name: "主版本", accessCode: "", isEnabled: true, sortOrder: 1 },
-        { id: "u1", name: "求职版本", accessCode: "u1", isEnabled: false, sortOrder: 2 },
-        { id: "o1", name: "组织/公司版本", accessCode: "o1", isEnabled: false, sortOrder: 3 }
+        { id: "main", name: "主版本", accessCode: "", isEnabled: true, sortOrder: 1, languageSettings: { "zh-CN": { isEnabled: true } } }
       ]
     }
   },

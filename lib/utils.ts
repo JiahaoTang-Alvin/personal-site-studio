@@ -107,10 +107,12 @@ export function getEnabledLanguages(config: SiteConfig): SiteLanguage[] {
 }
 
 export function getAvailableLanguagesForVariant(config: SiteConfig, variantId: string): SiteLanguage[] {
-  const enabledLanguages = getEnabledLanguages(config);
+  const languages = config.settings.languages.languages.length
+    ? config.settings.languages.languages
+    : [{ code: getMainLocale(config), label: getMainLocale(config), isEnabled: true, sortOrder: 1 }];
   const mainLocale = getMainLocale(config);
   const mainLanguage =
-    enabledLanguages.find((language) => language.code === mainLocale) ??
+    languages.find((language) => language.code === mainLocale) ??
     config.settings.languages.languages.find((language) => language.code === mainLocale) ?? {
       code: mainLocale,
       label: mainLocale,
@@ -119,14 +121,14 @@ export function getAvailableLanguagesForVariant(config: SiteConfig, variantId: s
     };
   const availableCodes = new Set<string>([mainLocale]);
 
-  for (const language of enabledLanguages) {
+  for (const language of languages) {
     if (language.code === mainLocale) continue;
-    if (config.contentVariants?.[getContentVariantKey(variantId, language.code)]) {
+    if (getVariantLanguageIsEnabled(config, variantId, language.code)) {
       availableCodes.add(language.code);
     }
   }
 
-  const availableLanguages = enabledLanguages.filter((language) => availableCodes.has(language.code));
+  const availableLanguages = languages.filter((language) => availableCodes.has(language.code));
   return availableLanguages.some((language) => language.code === mainLocale)
     ? availableLanguages
     : [mainLanguage, ...availableLanguages].sort(bySortOrder);
@@ -219,8 +221,8 @@ export function findVariantByAccessCode(config: SiteConfig, accessCode: string) 
   return getEnabledVariants(config).find((variant) => variant.accessCode.trim().toLowerCase() === normalizedAccessCode) ?? null;
 }
 
-export function resolveLocaleFromAcceptLanguage(config: SiteConfig, acceptLanguage: string | null) {
-  const enabledLanguages = getEnabledLanguages(config);
+export function resolveLocaleFromAcceptLanguage(config: SiteConfig, acceptLanguage: string | null, variantId = getMainVariantId(config)) {
+  const enabledLanguages = getAvailableLanguagesForVariant(config, variantId);
   const mainLocale = getMainLocale(config);
   if (!config.settings.languages.isEnabled || enabledLanguages.length <= 1 || !acceptLanguage) return mainLocale;
 
@@ -238,6 +240,13 @@ export function resolveLocaleFromAcceptLanguage(config: SiteConfig, acceptLangua
   }
 
   return mainLocale;
+}
+
+function getVariantLanguageIsEnabled(config: SiteConfig, variantId: string, locale: string) {
+  const variant = config.settings.variants.variants.find((item) => item.id === variantId);
+  const state = variant?.languageSettings?.[locale];
+  if (state) return state.isEnabled;
+  return Boolean(config.contentVariants?.[getContentVariantKey(variantId, locale)]);
 }
 
 export function resolvePublicVariantId(config: SiteConfig, cookieVariantId?: string) {

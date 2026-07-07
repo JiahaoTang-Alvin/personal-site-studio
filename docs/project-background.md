@@ -50,7 +50,7 @@ The admin editor keeps a `baseConfig` plus a materialized editing view. Switchin
 
 The top-bar language picker is filtered by the selected variant. The main locale is always available; other enabled languages appear only when that selected variant has its own `variantId:locale` snapshot. This prevents a version with no translated content from showing every global language option.
 
-In project settings, languages and variants share one `多语言&多版本` branch. The main interaction starts from version cards: add a version, then use the plus control inside that version to add languages. Adding a language to a version creates the matching `variantId:locale` snapshot.
+In project settings, languages and variants share one `多版本&多语言` branch. The main interaction starts from version cards: add a version, then use the plus control inside that version to add languages. Adding a language to a version creates the matching `variantId:locale` snapshot. The language capsule can be renamed, hidden with its checkbox, promoted to the main language, or deleted with confirmation.
 
 Public routing uses hidden short access codes:
 

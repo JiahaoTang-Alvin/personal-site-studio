@@ -151,7 +151,8 @@ const variantSettingsSchema = z
           name: z.string().min(1),
           accessCode: z.string(),
           isEnabled: z.boolean(),
-          sortOrder: z.number().int().nonnegative()
+          sortOrder: z.number().int().nonnegative(),
+          languageSettings: z.record(z.object({ isEnabled: z.boolean() })).optional()
         })
       )
       .default([{ id: "main", name: "主版本", accessCode: "", isEnabled: true, sortOrder: 1 }])

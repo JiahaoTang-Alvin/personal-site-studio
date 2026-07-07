@@ -45,7 +45,7 @@ async function getPublicSiteConfig() {
   const cookieStore = await cookies();
   const requestHeaders = await headers();
   const variantId = resolvePublicVariantId(config, cookieStore.get(publicVariantCookieName)?.value);
-  const locale = resolveLocaleFromAcceptLanguage(config, requestHeaders.get("accept-language"));
+  const locale = resolveLocaleFromAcceptLanguage(config, requestHeaders.get("accept-language"), variantId);
   return materializeSiteConfig(config, variantId, locale);
 }
 
