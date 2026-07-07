@@ -200,6 +200,8 @@ export function writeSiteContentSnapshot(config: SiteConfig, variantId: string, 
   const snapshot = getSiteContentSnapshot(nextConfig);
 
   if (variantId === mainVariantId && locale === mainLocale) {
+    const nextContentVariants = { ...(config.contentVariants ?? {}) };
+    delete nextContentVariants[getContentVariantKey(mainVariantId, mainLocale)];
     return normalizeContentFlowConfig({
       ...config,
       profile: snapshot.profile,
@@ -214,7 +216,8 @@ export function writeSiteContentSnapshot(config: SiteConfig, variantId: string, 
         seoDescription: snapshot.seoDescription ?? config.settings.seoDescription,
         seoCanonicalUrl: snapshot.seoCanonicalUrl ?? config.settings.seoCanonicalUrl,
         seoOgImage: snapshot.seoOgImage ?? config.settings.seoOgImage
-      }
+      },
+      contentVariants: nextContentVariants
     });
   }
 
@@ -320,14 +323,15 @@ function getSectionTextBlockId(sectionId: string, existingBlockIds: Set<string>)
 function getResolvedContentSnapshot(config: SiteConfig, variantId: string, locale: string): SiteContentSnapshot {
   const mainVariantId = getMainVariantId(config);
   const mainLocale = getMainLocale(config);
+  if (variantId === mainVariantId && locale === mainLocale) return getSiteContentSnapshot(config);
+
   const variantMainLocale = getVariantMainLocale(config, variantId);
   const snapshots = config.contentVariants ?? {};
   const keys = [
     getContentVariantKey(variantId, locale),
     getContentVariantKey(variantId, variantMainLocale),
-    getContentVariantKey(mainVariantId, locale),
-    getContentVariantKey(mainVariantId, mainLocale)
-  ];
+    getContentVariantKey(mainVariantId, locale)
+  ].filter((key) => key !== getContentVariantKey(mainVariantId, mainLocale));
 
   for (const key of keys) {
     const snapshot = snapshots[key];
