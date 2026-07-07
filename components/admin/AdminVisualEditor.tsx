@@ -1120,6 +1120,57 @@ export function AdminVisualEditor({ initialConfig }: { initialConfig: SiteConfig
                         );
                       }
 
+                      function pushEditableBlockGroup({
+                        key,
+                        contentGroupId,
+                        blocks,
+                        dragPreview,
+                        releaseSiblingPlacements
+                      }: {
+                        key: string;
+                        contentGroupId: string;
+                        blocks: Block[];
+                        dragPreview: DragPreviewPlacement | null;
+                        releaseSiblingPlacements: boolean;
+                      }) {
+                        if (blocks.length === 0) return;
+
+                        nodes.push(
+                          <EditableSection
+                            key={key}
+                            section={topLevelSection}
+                            contentGroupId={contentGroupId}
+                            blocks={blocks}
+                            onEditSection={() => undefined}
+                            onDeleteSection={() => undefined}
+                            onEditBlock={(blockId) => setModal({ type: "block", blockId })}
+                            onDeleteBlock={deleteBlock}
+                            onSelectBlock={setSelectedBlockId}
+                            device={editorDevice}
+                            activeDragBlockId={activeDragBlockId}
+                            dragPreviewBlock={activeDragBlock}
+                            dragPreviewPlacement={dragPreview}
+                            onResizeBlock={patchBlockSizeForDevice}
+                            onResizePreview={setResizePreviewSize}
+                            resizeDrafts={resizeDrafts}
+                            onResizeDraft={(blockId, size) =>
+                              setResizeDrafts((current) => {
+                                if (!size) {
+                                  const next = { ...current };
+                                  delete next[blockId];
+                                  return next;
+                                }
+                                return { ...current, [blockId]: size };
+                              })
+                            }
+                            sectionHandleProps={{}}
+                            hideHeader
+                            showDragPreview={dragPreview !== null}
+                            releaseSiblingPlacementsDuringPreview={dragPreview !== null && releaseSiblingPlacements}
+                          />
+                        );
+                      }
+
                       for (const item of editorContentItems) {
                         pushTextPreview(contentCursor);
 
@@ -1150,47 +1201,56 @@ export function AdminVisualEditor({ initialConfig }: { initialConfig: SiteConfig
                             shouldReleaseSiblingPlacementsForDrag(activeDragBlock, editorDevice) &&
                             !isOriginalPreviewPosition;
 
-                          nodes.push(
-                            <EditableSection
-                              key={item.id}
-                              section={topLevelSection}
-                              contentGroupId={item.id}
-                              blocks={item.blocks}
-                              onEditSection={() => undefined}
-                              onDeleteSection={() => undefined}
-                              onEditBlock={(blockId) => setModal({ type: "block", blockId })}
-                              onDeleteBlock={deleteBlock}
-                              onSelectBlock={setSelectedBlockId}
-                              device={editorDevice}
-                              activeDragBlockId={activeDragBlockId}
-                              dragPreviewBlock={activeDragBlock}
-                              dragPreviewPlacement={
-                                shouldShowGridPreview && dragPreviewPlacement
-                                  ? {
-                                      ...dragPreviewPlacement,
-                                      targetIndex: (previewContentIndex ?? contentCursor) - contentCursor
-                                    }
-                                  : null
-                              }
-                              onResizeBlock={patchBlockSizeForDevice}
-                              onResizePreview={setResizePreviewSize}
-                              resizeDrafts={resizeDrafts}
-                              onResizeDraft={(blockId, size) =>
-                                setResizeDrafts((current) => {
-                                  if (!size) {
-                                    const next = { ...current };
-                                    delete next[blockId];
-                                    return next;
+                          const textPreviewBlock =
+                            activeDragBlock !== null && isSectionTextBlock(activeDragBlock) ? activeDragBlock : null;
+                          const textPreviewOffset =
+                            textPreviewBlock !== null &&
+                            !didRenderTextPreview &&
+                            activeTextPreviewContentIndex !== undefined &&
+                            activeTextPreviewContentIndex > contentCursor &&
+                            activeTextPreviewContentIndex < contentCursor + contentBlocks.length
+                              ? activeTextPreviewContentIndex - contentCursor
+                              : null;
+
+                          if (textPreviewOffset !== null && textPreviewBlock !== null) {
+                            didRenderTextPreview = true;
+                            pushEditableBlockGroup({
+                              key: `${item.id}:before-text-preview`,
+                              contentGroupId: item.id,
+                              blocks: contentBlocks.slice(0, textPreviewOffset),
+                              dragPreview: null,
+                              releaseSiblingPlacements: false
+                            });
+                            nodes.push(
+                              <TextBlockDropPreview
+                                key={`text-block-preview:${textPreviewBlock.id}:${activeTextPreviewContentIndex}`}
+                                block={textPreviewBlock}
+                              />
+                            );
+                            pushEditableBlockGroup({
+                              key: `${item.id}:after-text-preview`,
+                              contentGroupId: item.id,
+                              blocks: contentBlocks.slice(textPreviewOffset),
+                              dragPreview: null,
+                              releaseSiblingPlacements: false
+                            });
+                            contentCursor += contentBlocks.length;
+                            continue;
+                          }
+
+                          pushEditableBlockGroup({
+                            key: item.id,
+                            contentGroupId: item.id,
+                            blocks: item.blocks,
+                            dragPreview:
+                              shouldShowGridPreview && dragPreviewPlacement
+                                ? {
+                                    ...dragPreviewPlacement,
+                                    targetIndex: (previewContentIndex ?? contentCursor) - contentCursor
                                   }
-                                  return { ...current, [blockId]: size };
-                                })
-                              }
-                              sectionHandleProps={{}}
-                              hideHeader
-                              showDragPreview={shouldShowGridPreview}
-                              releaseSiblingPlacementsDuringPreview={shouldShowGridPreview && shouldReleaseSiblingPlacements}
-                            />
-                          );
+                                : null,
+                            releaseSiblingPlacements: shouldReleaseSiblingPlacements
+                          });
                           contentCursor += contentBlocks.length;
                           continue;
                         }
@@ -1820,10 +1880,9 @@ function getTopLevelContentGroupTarget(
   const groups = getTopLevelContentGroupTargets(config, activeBlock.id);
   const candidates = groups
     .map((group) => {
-      const gridElement = findAdminContentGroupGridElement(group.id);
-      if (!gridElement) return null;
+      const rect = getAdminContentGroupGridRect(group.id);
+      if (!rect) return null;
 
-      const rect = gridElement.getBoundingClientRect();
       const verticalBand = Math.max(48, rect.height * 0.18);
       const horizontalBand = 96;
       const isNear =
@@ -1839,7 +1898,7 @@ function getTopLevelContentGroupTarget(
         distance: getDistanceToRect(intentPoint, rect)
       };
     })
-    .filter((item): item is { group: ContentGroupTarget; rect: DOMRect; distance: number } => item !== null)
+    .filter((item): item is { group: ContentGroupTarget; rect: MeasuredRect; distance: number } => item !== null)
     .sort((a, b) => a.distance - b.distance);
 
   const candidate = candidates[0];
@@ -2439,10 +2498,26 @@ function findAdminSectionGridElement(sectionId: string, pointer?: Point | null, 
     .sort((a, b) => a.score - b.score)[0]?.element ?? null;
 }
 
-function findAdminContentGroupGridElement(contentGroupId: string) {
-  return Array.from(document.querySelectorAll<HTMLElement>("[data-admin-content-group-id]")).find(
-    (element) => element.dataset.adminContentGroupId === contentGroupId
-  ) ?? null;
+function getAdminContentGroupGridRect(contentGroupId: string): MeasuredRect | null {
+  const rects = Array.from(document.querySelectorAll<HTMLElement>("[data-admin-content-group-id]"))
+    .filter((element) => element.dataset.adminContentGroupId === contentGroupId)
+    .map((element) => copyMeasuredRect(element.getBoundingClientRect()))
+    .filter((rect) => rect.width > 0 && rect.height > 0);
+
+  if (rects.length === 0) return null;
+
+  const left = Math.min(...rects.map((rect) => rect.left));
+  const top = Math.min(...rects.map((rect) => rect.top));
+  const right = Math.max(...rects.map((rect) => rect.right));
+  const bottom = Math.max(...rects.map((rect) => rect.bottom));
+  return {
+    left,
+    top,
+    width: right - left,
+    height: bottom - top,
+    right,
+    bottom
+  };
 }
 
 function getAxisDistance(value: number, start: number, end: number) {
