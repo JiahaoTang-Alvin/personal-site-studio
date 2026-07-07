@@ -1652,7 +1652,7 @@ function getBlockDragPreviewPlacement({
   device: LayoutDevice;
   previousPlacement?: DragPreviewPlacement | null;
 }): DragPreviewPlacement | null {
-  const contentTarget = getTopLevelContentTargetFromDrag(config, activeBlock, pointer, dragRect);
+  const contentTarget = getTopLevelContentTargetFromDrag(config, activeBlock, pointer, dragRect, device);
   if (contentTarget) {
     const placement = isSectionTextBlock(activeBlock)
       ? undefined
@@ -1692,6 +1692,7 @@ function getBlockDragPreviewPlacement({
   const targetBlocks = config.blocks
     .filter((block) => block.sectionId === targetSectionId && block.id !== activeBlock.id && !isSectionTextBlock(block))
     .sort(bySortOrder);
+  const placement = getPlacementFromDrag({ sectionId: targetSectionId, block: activeBlock, pointer, dragRect, device });
   const targetIndex =
     getInsertionIndexFromPointer({
       targetBlocks,
@@ -1699,12 +1700,12 @@ function getBlockDragPreviewPlacement({
       dragRect,
       activeBlock,
       targetSectionId,
-      device
+      device,
+      activePlacement: placement
     }) ??
     (previousPlacement?.blockId === activeBlock.id && previousPlacement.targetSectionId === targetSectionId
       ? previousPlacement.targetIndex
       : targetBlocks.length);
-  const placement = getPlacementFromDrag({ sectionId: targetSectionId, block: activeBlock, pointer, dragRect, device });
 
   return { blockId: activeBlock.id, targetSectionId, targetIndex, ...placement };
 }
@@ -1713,13 +1714,14 @@ function getTopLevelContentTargetFromDrag(
   config: SiteConfig,
   activeBlock: Block,
   pointer: Point | null,
-  dragRect: MeasuredRect | null
+  dragRect: MeasuredRect | null,
+  device: LayoutDevice
 ) {
   const intentPoint = pointer ?? getDragCenterPoint(dragRect);
   if (!intentPoint) return null;
 
   const flowItems = getContentFlowForBlockMove(buildRenderModel(config), activeBlock.id);
-  const groupTarget = getTopLevelContentGroupTarget(config, activeBlock, intentPoint);
+  const groupTarget = getTopLevelContentGroupTarget(config, activeBlock, intentPoint, pointer, dragRect, device);
   if (groupTarget) {
     return groupTarget;
   }
@@ -1749,7 +1751,14 @@ function getTopLevelContentTargetFromDrag(
   return null;
 }
 
-function getTopLevelContentGroupTarget(config: SiteConfig, activeBlock: Block, intentPoint: Point) {
+function getTopLevelContentGroupTarget(
+  config: SiteConfig,
+  activeBlock: Block,
+  intentPoint: Point,
+  pointer: Point | null,
+  dragRect: MeasuredRect | null,
+  device: LayoutDevice
+) {
   const groups = getTopLevelContentGroupTargets(config, activeBlock.id);
   const candidates = groups
     .map((group) => {
@@ -1786,7 +1795,23 @@ function getTopLevelContentGroupTarget(config: SiteConfig, activeBlock: Block, i
     };
   }
 
-  const targetIndex = getInsertionIndexFromBlockRects(candidate.group.blocks, intentPoint);
+  const placement = getPlacementFromDrag({
+    sectionId: topLevelBlockSectionId,
+    block: activeBlock,
+    pointer,
+    dragRect,
+    device
+  });
+  const targetIndex =
+    getInsertionIndexFromPointer({
+      targetBlocks: candidate.group.blocks,
+      pointer,
+      dragRect,
+      activeBlock,
+      targetSectionId: topLevelBlockSectionId,
+      device,
+      activePlacement: placement
+    }) ?? getInsertionIndexFromBlockRects(candidate.group.blocks, intentPoint);
   return {
     targetContentIndex: candidate.group.startIndex + targetIndex,
     targetIndex
@@ -1935,7 +1960,8 @@ function getInsertionIndexFromPointer({
   dragRect,
   activeBlock,
   targetSectionId,
-  device
+  device,
+  activePlacement
 }: {
   targetBlocks: Block[];
   pointer: Point | null;
@@ -1943,13 +1969,37 @@ function getInsertionIndexFromPointer({
   activeBlock: Block;
   targetSectionId: string;
   device: LayoutDevice;
+  activePlacement?: BlockPlacementDraft;
 }) {
   if (!pointer && !dragRect) return null;
+  const activeSize = getBlockSize(activeBlock, device);
+  const shouldPreferPlacement = getLogicalColumnSpan(activeSize, device) > 1;
+  if (shouldPreferPlacement && activePlacement) {
+    const placementIndex = getSimulatedGridInsertionIndex(
+      targetBlocks,
+      pointer,
+      dragRect,
+      activeBlock,
+      targetSectionId,
+      device,
+      activePlacement
+    );
+    if (placementIndex !== null) return placementIndex;
+  }
+
   if (pointer && isPointerInBlockInsertionBand(targetBlocks, pointer)) {
     return getInsertionIndexFromBlockRects(targetBlocks, pointer);
   }
 
-  const simulatedIndex = getSimulatedGridInsertionIndex(targetBlocks, pointer, dragRect, activeBlock, targetSectionId, device);
+  const simulatedIndex = getSimulatedGridInsertionIndex(
+    targetBlocks,
+    pointer,
+    dragRect,
+    activeBlock,
+    targetSectionId,
+    device,
+    activePlacement
+  );
   if (simulatedIndex !== null) return simulatedIndex;
 
   if (dragRect) {
@@ -1987,19 +2037,28 @@ function getSimulatedGridInsertionIndex(
   dragRect: MeasuredRect | null,
   activeBlock: Block,
   targetSectionId: string,
-  device: LayoutDevice
+  device: LayoutDevice,
+  activePlacement?: BlockPlacementDraft
 ) {
   const metrics = getAdminSectionGridMetrics(targetSectionId, device, pointer, dragRect);
   if (!metrics) return null;
 
+  const desiredPlacement = activePlacement
+    ? getGridPlacementFromBlockPlacement(activeBlock, activePlacement, device, metrics.columns)
+    : null;
   let bestCandidate: { index: number; score: number } | null = null;
   for (let index = 0; index <= targetBlocks.length; index += 1) {
-    const placement = simulateActiveGridPlacement(targetBlocks, activeBlock, index, device, metrics.columns);
+    const placement = simulateActiveGridPlacement(targetBlocks, activeBlock, index, device, metrics.columns, activePlacement);
     if (!placement) continue;
     const rect = getGridPlacementRect(placement, metrics);
     const pointerScore = pointer ? getPointerToPlacementScore(pointer, rect) : Number.POSITIVE_INFINITY;
     const dragScore = dragRect ? getDragRectToPlacementScore(dragRect, rect) : Number.POSITIVE_INFINITY;
-    const score = dragRect ? dragScore + Math.min(pointerScore, 160) * 0.2 : pointerScore;
+    const placementScore = desiredPlacement ? getGridPlacementDistanceScore(placement, desiredPlacement) : 0;
+    const score = desiredPlacement
+      ? placementScore + (dragRect ? Math.min(dragScore, 220) * 0.08 : Math.min(pointerScore, 220) * 0.08)
+      : dragRect
+        ? dragScore + Math.min(pointerScore, 160) * 0.2
+        : pointerScore;
 
     if (!bestCandidate || score < bestCandidate.score) {
       bestCandidate = { index, score };
@@ -2047,19 +2106,20 @@ function simulateActiveGridPlacement(
   activeBlock: Block,
   insertionIndex: number,
   device: LayoutDevice,
-  columns: number
+  columns: number,
+  activePlacement?: BlockPlacementDraft
 ) {
   const sequence: Array<{ columnSpan: number; rowSpan: number; columnStart?: number; rowStart?: number; isActive: boolean }> = [];
 
   targetBlocks.forEach((block, index) => {
     if (index === insertionIndex) {
-      sequence.push(getGridItemShape(activeBlock, device, true));
+      sequence.push(getGridItemShape(activeBlock, device, true, activePlacement));
     }
     sequence.push(getGridItemShape(block, device, false));
   });
 
   if (insertionIndex === targetBlocks.length) {
-    sequence.push(getGridItemShape(activeBlock, device, true));
+    sequence.push(getGridItemShape(activeBlock, device, true, activePlacement));
   }
 
   const occupied: boolean[][] = [];
@@ -2071,15 +2131,48 @@ function simulateActiveGridPlacement(
   return null;
 }
 
-function getGridItemShape(block: Block, device: LayoutDevice, isActive: boolean) {
+function getGridItemShape(block: Block, device: LayoutDevice, isActive: boolean, activePlacement?: BlockPlacementDraft) {
   const size = getBlockSize(block, device);
+  const columnStart = isActive && activePlacement
+    ? getGridColumnStartFromPlacement(activePlacement, device)
+    : getBlockColumnStart(block, device);
+  const rowStart = isActive && activePlacement ? activePlacement.rowStart : getBlockRowStart(block, device);
   return {
     columnSpan: getDefaultGridSpan(size, device),
     rowSpan: getDefaultRowSpan(size),
-    columnStart: getBlockColumnStart(block, device),
-    rowStart: getBlockRowStart(block, device),
+    columnStart,
+    rowStart,
     isActive
   };
+}
+
+function getGridPlacementFromBlockPlacement(
+  block: Block,
+  placement: BlockPlacementDraft,
+  device: LayoutDevice,
+  columns: number
+): GridPlacement {
+  const size = getBlockSize(block, device);
+  const columnSpan = getDefaultGridSpan(size, device);
+  const rowSpan = getDefaultRowSpan(size);
+  const columnStart = getGridColumnStartFromPlacement(placement, device);
+  const rowStart = placement.rowStart;
+  return {
+    column: columnStart ? clamp(columnStart - 1, 0, columns - columnSpan) : 0,
+    row: rowStart ? clamp(rowStart - 1, 0, 239) : 0,
+    columnSpan,
+    rowSpan
+  };
+}
+
+function getGridColumnStartFromPlacement(placement: BlockPlacementDraft, device: LayoutDevice) {
+  if (!placement.columnStart) return undefined;
+  const baseSpan = device === "desktop" ? 4 : 6;
+  return (placement.columnStart - 1) * baseSpan + 1;
+}
+
+function getGridPlacementDistanceScore(source: GridPlacement, target: GridPlacement) {
+  return Math.abs(source.row - target.row) * 1200 + Math.abs(source.column - target.column) * 700;
 }
 
 function placeGridItem(
