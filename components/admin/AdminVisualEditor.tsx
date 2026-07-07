@@ -3585,7 +3585,7 @@ function TagsQuickForm({ profile, onPatch }: { profile: Profile; onPatch: (patch
       </div>
       <div className="grid gap-2">
         {profile.tags.map((tag, index) => (
-          <div key={`${tag}-${index}`} className="grid gap-2 rounded-2xl border border-[#EAEAEA] p-3 sm:grid-cols-[1fr_auto]">
+          <div key={`tag-editor-${index}`} className="grid gap-2 rounded-2xl border border-[#EAEAEA] p-3 sm:grid-cols-[1fr_auto]">
             <Input value={tag} onChange={(event) => updateTag(index, event.target.value)} />
             <div className="flex gap-1">
               <Button
