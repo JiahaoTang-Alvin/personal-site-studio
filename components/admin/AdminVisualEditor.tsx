@@ -18,6 +18,7 @@ import {
 import { rectSortingStrategy, SortableContext, useSortable, verticalListSortingStrategy } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import {
+  Award,
   AlignLeft,
   AppWindow,
   BookOpen,
@@ -98,20 +99,49 @@ type ModalState =
   | { type: "project-settings" }
   | null;
 
+type BlockTemplate = {
+  label: string;
+  description: string;
+  type: BlockType;
+  size: BlockSize;
+  icon: React.ReactNode;
+  defaultTitle?: string;
+  defaultSubtitle?: string;
+  defaultDescription?: string;
+  defaultIcon?: string;
+  defaultBadge?: string;
+  defaultHref?: string;
+  defaultActionType?: Block["actionType"];
+  defaultMetadata?: Record<string, unknown>;
+};
+
 const blockTemplates: {
   group: string;
-  items: { label: string; description: string; type: BlockType; size: BlockSize; icon: React.ReactNode }[];
+  items: BlockTemplate[];
 }[] = [
   {
-    group: "作品",
+    group: "常用",
     items: [
-      { label: "文本区块", description: "整行标题/说明", type: "section", size: "section-text", icon: <AlignLeft /> },
-      { label: "导入", description: "外部链接", type: "link", size: "small-square", icon: <LinkIcon /> },
-      { label: "标题", description: "标题卡片", type: "text", size: "wide", icon: <Type /> },
-      { label: "文字", description: "文章摘要", type: "text", size: "wide", icon: <FileText /> },
-      { label: "图片", description: "上传图片", type: "image", size: "wide", icon: <ImagePlus /> },
-      { label: "App", description: "应用项目", type: "project", size: "large-square", icon: <AppWindow /> },
-      { label: "公众号", description: "社交账号", type: "social", size: "small-square", icon: <BookOpen /> }
+      { label: "标题", description: "整行标题/说明", type: "section", size: "section-text", icon: <Type /> },
+      {
+        label: "文本",
+        description: "文字方块",
+        type: "text",
+        size: "wide",
+        icon: <FileText />,
+        defaultTitle: "这是一个文本block",
+        defaultDescription: "这是一个文本block",
+        defaultMetadata: {
+          textVariant: "plain",
+          textAlign: "center",
+          verticalAlign: "center",
+          textBold: false,
+          textItalic: false,
+          textUnderline: false
+        }
+      },
+      { label: "图片", description: "上传图片", type: "image", size: "wide", icon: <ImagePlus />, defaultActionType: "image-preview" },
+      { label: "链接", description: "外部链接", type: "link", size: "small-square", icon: <LinkIcon />, defaultTitle: "New Link", defaultIcon: "link" }
     ]
   },
   {
@@ -119,14 +149,19 @@ const blockTemplates: {
     items: [
       { label: "高光时刻", description: "状态/动态", type: "status", size: "wide", icon: <Palette /> },
       { label: "教育经历", description: "教育卡片", type: "text", size: "large-square", icon: <BookOpen /> },
-      { label: "工作经历", description: "经历卡片", type: "project", size: "large-square", icon: <BriefcaseBusiness /> }
+      { label: "工作经历", description: "经历卡片", type: "project", size: "large-square", icon: <BriefcaseBusiness /> },
+      { label: "获奖记录", description: "奖项/荣誉", type: "status", size: "wide", icon: <Award />, defaultIcon: "award", defaultBadge: "Award" }
     ]
   },
   {
     group: "社交媒体",
     items: [
-      { label: "GitHub", description: "GitHub 链接", type: "social", size: "small-square", icon: <Github /> },
-      { label: "X", description: "X / Twitter", type: "social", size: "small-square", icon: <X /> }
+      { label: "GitHub", description: "GitHub 链接", type: "social", size: "small-square", icon: <Github />, defaultIcon: "github", defaultActionType: "link" },
+      { label: "X", description: "X / Twitter", type: "social", size: "small-square", icon: <X />, defaultIcon: "twitter", defaultActionType: "link" },
+      { label: "Instagram", description: "Instagram", type: "social", size: "small-square", icon: <Instagram />, defaultIcon: "instagram", defaultActionType: "link" },
+      { label: "YouTube", description: "YouTube", type: "social", size: "small-square", icon: <Youtube />, defaultIcon: "youtube", defaultActionType: "link" },
+      { label: "LinkedIn", description: "LinkedIn", type: "social", size: "small-square", icon: <Linkedin />, defaultIcon: "linkedin", defaultActionType: "link" },
+      { label: "Website", description: "个人网站", type: "social", size: "small-square", icon: <Globe2 />, defaultIcon: "website", defaultActionType: "link" }
     ]
   }
 ];
@@ -550,15 +585,16 @@ export function AdminVisualEditor({ initialConfig }: { initialConfig: SiteConfig
     setModal(null);
   }
 
-  function addBlock(template: (typeof blockTemplates)[number]["items"][number]) {
+  function addBlock(template: BlockTemplate) {
     const now = new Date().toISOString();
     const isTextSection = template.type === "section";
+    const isPlainTextBlock = template.defaultMetadata?.textVariant === "plain";
     const newBlock: Block = {
       id: crypto.randomUUID(),
       sectionId: topLevelBlockSectionId,
-      title: isTextSection ? "New Section" : template.label === "导入" ? "New Link" : template.label,
-      subtitle: template.description,
-      description: "",
+      title: template.defaultTitle ?? (isTextSection ? "New Section" : template.label),
+      subtitle: template.defaultSubtitle ?? (isPlainTextBlock ? "" : template.description),
+      description: template.defaultDescription ?? "",
       type: template.type,
       size: isTextSection ? "section-text" : template.size,
       responsiveSizes: isTextSection
@@ -568,10 +604,10 @@ export function AdminVisualEditor({ initialConfig }: { initialConfig: SiteConfig
           }
         : undefined,
       coverImage: "",
-      icon: template.type === "social" ? template.label.toLowerCase() : "",
-      badge: "",
-      href: "",
-      actionType: template.type === "image" ? "image-preview" : "none",
+      icon: template.defaultIcon ?? (template.type === "social" ? template.label.toLowerCase() : ""),
+      badge: template.defaultBadge ?? "",
+      href: template.defaultHref ?? "",
+      actionType: template.defaultActionType ?? (template.type === "image" ? "image-preview" : "none"),
       openInNewTab: true,
       backgroundColor: "",
       textColor: "",
@@ -580,7 +616,7 @@ export function AdminVisualEditor({ initialConfig }: { initialConfig: SiteConfig
             titleAlign: "left",
             titleSize: "md"
           }
-        : {},
+        : template.defaultMetadata ?? {},
       isVisible: true,
       isFeatured: false,
       sortOrder: getNextContentSortOrder(config),
@@ -3285,7 +3321,7 @@ function BlockModalBody({
   return <BlockForm block={block} onPatch={onPatch} />;
 }
 
-function AddBlockDialog({ onAdd }: { onAdd: (template: (typeof blockTemplates)[number]["items"][number]) => void }) {
+function AddBlockDialog({ onAdd }: { onAdd: (template: BlockTemplate) => void }) {
   return (
     <div className="grid gap-5">
       <div className="rounded-xl bg-[#F3F5F9] px-4 py-3 text-sm text-[#7A8190]">

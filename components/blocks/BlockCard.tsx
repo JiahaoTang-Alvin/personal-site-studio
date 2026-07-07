@@ -69,6 +69,8 @@ export function BlockCard({
 
   const clickable = !disableActions && block.actionType !== "none";
   const hasCover = Boolean(block.coverImage);
+  const isPlainTextCard = block.type === "text" && block.metadata?.textVariant === "plain";
+  const showFooter = Boolean(block.badge) || block.actionType === "link" || block.actionType === "download" || block.actionType === "image-preview";
 
   return (
     <>
@@ -117,12 +119,13 @@ export function BlockCard({
         ) : null}
         <div
           className={cn(
-            "relative z-30 flex h-full flex-col justify-between gap-4 transition duration-200",
+            "relative z-30 flex h-full flex-col gap-4 transition duration-200",
+            isPlainTextCard ? "justify-center" : "justify-between",
             hasCover && (disableHoverReveal ? "opacity-0" : "opacity-0 group-hover:opacity-100")
           )}
         >
-          <div>{renderBlock(displayBlock, hasCover)}</div>
-          <div className="flex items-center justify-between gap-3">
+          <div className={cn("min-h-0", isPlainTextCard && "flex flex-1")}>{renderBlock(displayBlock, hasCover)}</div>
+          {showFooter ? <div className="flex items-center justify-between gap-3">
             <div className="flex min-w-0 flex-wrap gap-2">
               {block.badge ? (
                 <span className="line-clamp-2 max-w-full rounded-[18px] border border-[#E5E7EB] bg-white/95 px-3 py-1.5 text-xs font-semibold leading-5 text-[#475569] shadow-soft">
@@ -137,7 +140,7 @@ export function BlockCard({
               {block.actionType === "download" ? <Download className="h-4 w-4 text-[#64748B]" /> : null}
               {block.actionType === "image-preview" ? <ImageIcon className="h-4 w-4 text-[#64748B]" /> : null}
             </div>
-          </div>
+          </div> : null}
         </div>
       </article>
 
