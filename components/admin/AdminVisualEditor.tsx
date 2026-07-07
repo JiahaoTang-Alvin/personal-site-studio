@@ -948,7 +948,7 @@ export function AdminVisualEditor({ initialConfig }: { initialConfig: SiteConfig
 
   return (
     <main className="min-h-screen bg-white text-[#101010]">
-      <header className="sticky top-0 z-40 border-b border-[#EAF0F8] bg-white/88 backdrop-blur-xl">
+      <header className="sticky top-0 z-40 border-b border-[#EAF0F8] bg-white">
         <div className="mx-auto flex max-w-[1180px] items-center justify-between gap-3 px-5 py-3">
           <div>
             <p className="text-sm font-semibold">{config.settings.projectName}</p>
