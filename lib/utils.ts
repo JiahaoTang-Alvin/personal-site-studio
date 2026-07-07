@@ -249,8 +249,10 @@ export function resolveLocaleFromAcceptLanguage(config: SiteConfig, acceptLangua
 
 function getVariantLanguageIsEnabled(config: SiteConfig, variantId: string, locale: string) {
   const variant = config.settings.variants.variants.find((item) => item.id === variantId);
-  const state = variant?.languageSettings?.[locale];
+  const languageSettings = variant?.languageSettings;
+  const state = languageSettings?.[locale];
   if (state) return state.isEnabled;
+  if (languageSettings) return false;
   return Boolean(config.contentVariants?.[getContentVariantKey(variantId, locale)]);
 }
 

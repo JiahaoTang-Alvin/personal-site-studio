@@ -66,7 +66,6 @@ import {
   getAvailableLanguagesForVariant,
   getContentVariantKey,
   getEnabledVariants,
-  getMainLocale,
   getMainVariantId,
   getVariantMainLocale,
   getSiteContentSnapshot,
@@ -260,7 +259,7 @@ type EditorContentItem =
 export function AdminVisualEditor({ initialConfig }: { initialConfig: SiteConfig }) {
   const [baseConfig, setBaseConfig] = useState(() => normalizeContentFlowConfig(initialConfig));
   const [activeVariantId, setActiveVariantId] = useState(() => getMainVariantId(initialConfig));
-  const [activeLocale, setActiveLocale] = useState(() => getMainLocale(initialConfig));
+  const [activeLocale, setActiveLocale] = useState(() => getVariantMainLocale(initialConfig, getMainVariantId(initialConfig)));
   const [modal, setModal] = useState<ModalState>(null);
   const [isDirty, setIsDirty] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
@@ -296,7 +295,7 @@ export function AdminVisualEditor({ initialConfig }: { initialConfig: SiteConfig
   );
   const resolvedActiveLocale = availableLanguages.some((language) => language.code === activeLocale)
     ? activeLocale
-    : getMainLocale(baseConfig);
+    : getVariantMainLocale(baseConfig, resolvedActiveVariantId);
   const activeVariantIdRef = useRef(resolvedActiveVariantId);
   const activeLocaleRef = useRef(resolvedActiveLocale);
   const config = useMemo(
@@ -3931,13 +3930,16 @@ function ProjectSettingsForm({
   function getVariantLanguageCodes(variantId: string) {
     const codes = new Set<string>([getVariantMainLanguageCode(variantId)]);
     const variant = settings.variants.variants.find((item) => item.id === variantId);
-    for (const locale of Object.keys(variant?.languageSettings ?? {})) {
+    const languageSettings = variant?.languageSettings;
+    for (const locale of Object.keys(languageSettings ?? {})) {
       codes.add(locale);
     }
-    for (const key of Object.keys(config.contentVariants ?? {})) {
-      const [snapshotVariantId, locale] = key.split(":");
-      if (snapshotVariantId === variantId && locale) {
-        codes.add(locale);
+    if (!languageSettings) {
+      for (const key of Object.keys(config.contentVariants ?? {})) {
+        const [snapshotVariantId, locale] = key.split(":");
+        if (snapshotVariantId === variantId && locale) {
+          codes.add(locale);
+        }
       }
     }
     return codes;
@@ -4195,11 +4197,14 @@ function ProjectSettingsForm({
                     value={getVariantMainLanguageCode(settings.variants.mainVariantId)}
                     onChange={(event) => applyVariantMainLanguage(settings.variants.mainVariantId, event.target.value)}
                   >
-                    {settings.languages.languages.map((language) => (
-                      <option key={language.code} value={language.code}>
-                        {language.label}
-                      </option>
-                    ))}
+                    {[...settings.languages.languages]
+                      .sort(bySortOrder)
+                      .filter((language) => getVariantLanguageCodes(settings.variants.mainVariantId).has(language.code))
+                      .map((language) => (
+                        <option key={language.code} value={language.code}>
+                          {language.label}
+                        </option>
+                      ))}
                   </Select>
                 </Field>
               </div>
