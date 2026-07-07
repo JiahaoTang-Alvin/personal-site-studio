@@ -124,7 +124,7 @@ images/qrcode
 3. Enable Vercel Blob for the project.
 4. Deploy.
 5. Visit `/admin/login` and sign in with the password used to create `ADMIN_PASSWORD_HASH`.
-6. Open **项目设置** in the admin editor and set the project name, public site title, description, public URL, SEO fields, language library, versions, and per-version language choices.
+6. Open **项目设置** in the admin editor and set the project name, public site title, description, public URL, SEO fields, versions, and languages inside each version.
 7. Save once to persist the production config to Vercel Blob.
 
 ## Config Import and Export

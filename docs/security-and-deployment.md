@@ -110,7 +110,7 @@ The app can run without Vercel Blob:
 4. Set `BLOB_READ_WRITE_TOKEN`.
 5. Set `ADMIN_PASSWORD_HASH`.
 6. Set a random `SESSION_SECRET` of at least 32 characters.
-7. Sign in at `/admin/login`, open **项目设置**, and confirm project name, public title, description, URL, SEO fields, language library, versions, and per-version language choices.
+7. Sign in at `/admin/login`, open **项目设置**, and confirm project name, public title, description, URL, SEO fields, versions, and languages inside each version.
 8. Save once so the production Blob config is initialized.
 9. Run a production build before publishing major changes.
 

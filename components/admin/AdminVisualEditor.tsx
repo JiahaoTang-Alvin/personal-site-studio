@@ -3831,6 +3831,7 @@ function ProjectSettingsForm({
   const contentSettings = contentConfig.settings;
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const [activePanel, setActivePanel] = useState<ProjectSettingsPanel>("basic");
+  const [languageDrafts, setLanguageDrafts] = useState<Record<string, string>>({});
 
   function patchTheme(patch: Partial<SiteConfig["theme"]>) {
     onContentChange({ ...contentConfig, theme: { ...theme, ...patch } });
@@ -3842,49 +3843,6 @@ function ProjectSettingsForm({
 
   function patchSettings(patch: Partial<SiteConfig["settings"]>) {
     onChange({ ...config, settings: { ...settings, ...patch } });
-  }
-
-  function updateLanguage(code: string, patch: Partial<SiteConfig["settings"]["languages"]["languages"][number]>) {
-    const nextCode = patch.code ?? code;
-    onChange({
-      ...config,
-      settings: {
-        ...settings,
-        languages: {
-          ...settings.languages,
-          mainLocale: settings.languages.mainLocale === code ? nextCode : settings.languages.mainLocale,
-          languages: settings.languages.languages.map((language) => (language.code === code ? { ...language, ...patch } : language))
-        }
-      },
-      contentVariants: nextCode === code ? config.contentVariants : renameLocaleContentKeys(config.contentVariants ?? {}, code, nextCode)
-    });
-  }
-
-  function addLanguage() {
-    const nextSortOrder = Math.max(0, ...settings.languages.languages.map((language) => language.sortOrder)) + 1;
-    const code = `lang-${nextSortOrder}`;
-    patchSettings({
-      languages: {
-        ...settings.languages,
-        languages: [...settings.languages.languages, { code, label: "New language", isEnabled: false, sortOrder: nextSortOrder }]
-      }
-    });
-  }
-
-  function removeLanguage(code: string) {
-    const nextLanguages = settings.languages.languages.filter((language) => language.code !== code);
-    onChange({
-      ...config,
-      settings: {
-        ...settings,
-        languages: {
-          ...settings.languages,
-          mainLocale: settings.languages.mainLocale === code ? nextLanguages[0]?.code ?? "zh-CN" : settings.languages.mainLocale,
-          languages: nextLanguages.length ? normalizeSortOrder(nextLanguages) : settings.languages.languages
-        }
-      },
-      contentVariants: removeLocaleContentKeys(config.contentVariants ?? {}, code)
-    });
   }
 
   function updateVariant(id: string, patch: Partial<SiteConfig["settings"]["variants"]["variants"][number]>) {
@@ -3963,6 +3921,34 @@ function ProjectSettingsForm({
         [key]: getSiteContentSnapshot(sourceConfig)
       }
     });
+  }
+
+  function getVariantLanguageCodes(variantId: string) {
+    const codes = new Set<string>([settings.languages.mainLocale]);
+    for (const key of Object.keys(config.contentVariants ?? {})) {
+      const [snapshotVariantId, locale] = key.split(":");
+      if (snapshotVariantId === variantId && locale) {
+        codes.add(locale);
+      }
+    }
+    return codes;
+  }
+
+  function addVariantLanguage(variantId: string) {
+    const addableLanguages = getAddableVariantLanguages(variantId);
+    const locale = languageDrafts[variantId] || addableLanguages[0]?.code;
+    if (!locale) return;
+    setVariantLanguage(variantId, locale, true);
+    setLanguageDrafts((current) => {
+      const next = { ...current };
+      delete next[variantId];
+      return next;
+    });
+  }
+
+  function getAddableVariantLanguages(variantId: string) {
+    const existingCodes = getVariantLanguageCodes(variantId);
+    return [...settings.languages.languages].sort(bySortOrder).filter((language) => !existingCodes.has(language.code));
   }
 
   const panels: { id: ProjectSettingsPanel; label: string; description: string }[] = [
@@ -4114,35 +4100,6 @@ function ProjectSettingsForm({
             </div>
 
             <div className="grid gap-3">
-              <div className="flex items-center justify-between gap-3">
-                <p className="text-sm font-semibold text-[#111]">语言库</p>
-                <Button type="button" variant="secondary" size="sm" onClick={addLanguage}>
-                  <Plus className="h-4 w-4" />
-                  添加语言
-                </Button>
-              </div>
-              {[...settings.languages.languages].sort(bySortOrder).map((language) => (
-                <div key={language.code} className="grid gap-2 rounded-xl border border-[#EAEAEA] p-3 md:grid-cols-[auto_0.8fr_1fr_auto]">
-                  <label className="flex items-center gap-2 text-sm text-[#475569]">
-                    <Checkbox checked={language.isEnabled} onChange={(event) => updateLanguage(language.code, { isEnabled: event.target.checked })} />
-                    可选
-                  </label>
-                  <Input value={language.code} onChange={(event) => updateLanguage(language.code, { code: event.target.value })} />
-                  <Input value={language.label} onChange={(event) => updateLanguage(language.code, { label: event.target.value })} />
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => removeLanguage(language.code)}
-                    disabled={settings.languages.languages.length <= 1}
-                  >
-                    删除
-                  </Button>
-                </div>
-              ))}
-            </div>
-
-            <div className="grid gap-3">
               {[...settings.variants.variants].sort(bySortOrder).map((variant) => (
                 <div key={variant.id} className="grid gap-3 rounded-xl border border-[#EAEAEA] p-3">
                   <div className="grid gap-2 md:grid-cols-[auto_0.8fr_1fr_0.8fr_auto]">
@@ -4168,29 +4125,66 @@ function ProjectSettingsForm({
                     </Button>
                   </div>
                   <div className="grid gap-2">
-                    <p className="text-xs font-semibold text-[#64748B]">这个版本的语言</p>
-                    <div className="flex flex-wrap gap-2">
-                      {[...settings.languages.languages].sort(bySortOrder).map((language) => {
-                        const isMainLocale = language.code === settings.languages.mainLocale;
-                        const isChecked = isMainLocale || Boolean(config.contentVariants?.[getContentVariantKey(variant.id, language.code)]);
+                    <div className="flex items-center justify-between gap-3">
+                      <p className="text-xs font-semibold text-[#64748B]">这个版本的语言</p>
+                      {(() => {
+                        const addableLanguages = getAddableVariantLanguages(variant.id);
+                        const draftLocale = languageDrafts[variant.id] || addableLanguages[0]?.code || "";
                         return (
-                          <label
-                            key={`${variant.id}:${language.code}`}
-                            className={cn(
-                              "flex items-center gap-2 rounded-full border px-3 py-1.5 text-xs",
-                              isChecked ? "border-[#BFDBFE] bg-[#EFF6FF] text-[#1E3A5F]" : "border-[#EAEAEA] text-[#64748B]"
-                            )}
-                          >
-                            <Checkbox
-                              checked={isChecked}
-                              disabled={isMainLocale || !language.isEnabled}
-                              onChange={(event) => setVariantLanguage(variant.id, language.code, event.target.checked)}
-                            />
-                            {language.label}
-                            <span className="text-[#94A3B8]">{language.code}</span>
-                          </label>
+                          <div className="flex items-center gap-2">
+                            <Select
+                              value={draftLocale}
+                              onChange={(event) => setLanguageDrafts((current) => ({ ...current, [variant.id]: event.target.value }))}
+                              className="h-8 w-[136px] text-xs"
+                              disabled={addableLanguages.length === 0}
+                              aria-label="添加语言"
+                            >
+                              {addableLanguages.map((language) => (
+                                <option key={language.code} value={language.code}>
+                                  {language.label}
+                                </option>
+                              ))}
+                            </Select>
+                            <Button
+                              type="button"
+                              variant="secondary"
+                              size="sm"
+                              onClick={() => addVariantLanguage(variant.id)}
+                              disabled={addableLanguages.length === 0}
+                              className="h-8 px-2"
+                            >
+                              <Plus className="h-4 w-4" />
+                            </Button>
+                          </div>
                         );
-                      })}
+                      })()}
+                    </div>
+                    <div className="flex flex-wrap gap-2">
+                      {[...settings.languages.languages]
+                        .sort(bySortOrder)
+                        .filter((language) => getVariantLanguageCodes(variant.id).has(language.code))
+                        .map((language) => {
+                          const isMainLocale = language.code === settings.languages.mainLocale;
+                          return (
+                            <div
+                              key={`${variant.id}:${language.code}`}
+                              className="flex items-center gap-2 rounded-full border border-[#BFDBFE] bg-[#EFF6FF] px-3 py-1.5 text-xs text-[#1E3A5F]"
+                            >
+                              <span>{language.label}</span>
+                              <span className="text-[#5B7896]">{language.code}</span>
+                              {!isMainLocale ? (
+                                <button
+                                  type="button"
+                                  onClick={() => setVariantLanguage(variant.id, language.code, false)}
+                                  className="text-[#5B7896] hover:text-[#1E3A5F]"
+                                  aria-label={`移除 ${language.label}`}
+                                >
+                                  <X className="h-3 w-3" />
+                                </button>
+                              ) : null}
+                            </div>
+                          );
+                        })}
                     </div>
                   </div>
                 </div>
@@ -4298,24 +4292,6 @@ function removeVariantContentKeys(contentVariants: SiteConfig["contentVariants"]
     Object.entries(contentVariants ?? {}).filter(([key]) => {
       const [variantId] = key.split(":");
       return variantId !== variantIdToRemove;
-    })
-  );
-}
-
-function renameLocaleContentKeys(contentVariants: SiteConfig["contentVariants"], oldLocale: string, nextLocale: string) {
-  return Object.fromEntries(
-    Object.entries(contentVariants ?? {}).map(([key, snapshot]) => {
-      const [variantId, locale] = key.split(":");
-      return [locale === oldLocale ? getContentVariantKey(variantId ?? "", nextLocale) : key, snapshot];
-    })
-  );
-}
-
-function removeLocaleContentKeys(contentVariants: SiteConfig["contentVariants"], localeToRemove: string) {
-  return Object.fromEntries(
-    Object.entries(contentVariants ?? {}).filter(([key]) => {
-      const [, locale] = key.split(":");
-      return locale !== localeToRemove;
     })
   );
 }
