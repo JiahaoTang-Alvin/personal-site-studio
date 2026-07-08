@@ -1,16 +1,17 @@
 <div align="center">
 
-<h1>Personal Site Studio</h1>
+<h1>Bio Blocks Studio · Modular Personal Homepage Builder 🧩</h1>
 
-<p>A visual personal homepage studio for building a bio page, portfolio, link hub, and lightweight project showcase with Next.js.</p>
+<p>Build different versions of your personal homepage like stacking blocks.</p>
 
-<p>No traditional database is required. The public page renders your site, <code>/admin</code> edits it, and production content is stored in Vercel Blob.</p>
+<p>A self-hostable personal site template with a visual editor, draggable content blocks, hidden audience-specific versions, multilingual content, and Vercel Blob storage.</p>
 
 <p>
   <a href="LICENSE"><img alt="License: MIT" src="https://img.shields.io/badge/License-MIT-blue.svg"></a>
-  <a href="https://nextjs.org/"><img alt="Next.js" src="https://img.shields.io/badge/Next.js-16-black.svg"></a>
+  <a href="https://nextjs.org/"><img alt="Next.js" src="https://img.shields.io/badge/Next.js-App%20Router-black.svg"></a>
   <a href="https://www.typescriptlang.org/"><img alt="TypeScript" src="https://img.shields.io/badge/TypeScript-5-blue.svg"></a>
   <a href="https://vercel.com/"><img alt="Vercel" src="https://img.shields.io/badge/Deploy-Vercel-black.svg"></a>
+  <a href="https://vercel.com/docs/storage/vercel-blob"><img alt="Vercel Blob" src="https://img.shields.io/badge/Storage-Vercel%20Blob-black.svg"></a>
 </p>
 
 <p>English | <a href="README.md">中文</a></p>
@@ -19,51 +20,524 @@
 
 ---
 
-## What It Is
+## ✨ What is this?
 
-Personal Site Studio is an open-source template for personal brands, portfolios, creator link pages, and lightweight project homepages. It includes a password-protected visual admin editor, so you can update your homepage by arranging content cards instead of editing code every time.
+**Bio Blocks Studio** is an open-source modular personal homepage template.
+
+It is inspired by block-based personal homepage products such as Bonjour. Instead of editing code every time or setting up a heavy CMS, you can log in to the `/admin` panel and build your homepage visually — like arranging cards, stacking blocks, or creating a small visual layout.
+
+The page structure is simple:
+
+* **Left side**: Your profile, avatar, name, bio, tags, social links, contact entry, and personal information.
+* **Right side**: Draggable and resizable content blocks, including projects, images, videos, text, links, social cards, and status cards.
+* **Admin panel**: Edit content, adjust layout, upload images, switch themes, manage languages, and create hidden versions.
+* **Storage**: No traditional database required. Production content is stored in Vercel Blob.
+
+> This project is not an official Bonjour project and is not affiliated with Bonjour. It is an open-source, self-hostable implementation inspired by modular personal homepage experiences.
+
+---
+
+## 🧩 Features
+
+* **Modular homepage builder**
+  Build your personal homepage with independent content blocks. Projects, images, videos, text, links, status cards, and social cards can all be arranged freely.
+
+* **Visual drag-and-drop editing**
+  Reorder blocks and adjust card sizes directly in the admin panel. No code changes are needed for normal content updates.
+
+* **Two-column personal layout**
+  The left side focuses on your identity and profile, while the right side displays your work, visual content, projects, links, and custom modules.
+
+* **Separate desktop and mobile layouts**
+  The same content can have different layout sizes for desktop and mobile, so the page remains usable across devices.
+
+* **Hidden audience-specific versions**
+  Create different homepage versions for different audiences, such as a resume version, social version, event version, or partnership version. Each version can have its own content and layout.
+
+* **Languages under each version**
+  This is not just “one website with multiple languages.”
+  Each version can also have its own language variants. For example, your `resume` version can have both English and Chinese content, while your `social` version may only have a more casual Chinese version.
+
+* **Image upload and cropping**
+  Upload avatars, project images, content block images, QR codes, and other assets to Vercel Blob.
+
+* **Project-level settings**
+  Manage public site title, description, site URL, SEO metadata, theme, appearance, languages, and versions from the admin panel.
+
+* **Config import and export**
+  Export the full `SiteConfig` JSON for backup, migration, or reuse.
+
+* **No traditional database**
+  Production config and uploaded assets are stored in Vercel Blob, making the project lightweight and easy to deploy.
+
+---
+
+## 🎯 Use cases
 
 Good for:
 
-- Personal bio pages, portfolios, and link hubs
-- Indie developers, designers, creators, students, and freelancers
-- Personal websites that should deploy quickly and remain easy to maintain
-- Audience-specific public versions of the same homepage
+* Personal homepages
+* Portfolio websites
+* Indie developer pages
+* Student resume pages
+* Designer / creator profiles
+* Freelancer introduction pages
+* Project collection pages
+* Link-in-bio style pages
+* Different profile versions for different audiences
 
-Not ideal for:
+Examples:
 
-- Complex CMS products, multi-user admin systems, or role-based permissions
-- Sites that need to store private data
-- Pure GitHub Pages static hosting
+| Scenario                     | How you can use it                                                                                                  |
+| ---------------------------- | ------------------------------------------------------------------------------------------------------------------- |
+| 💼 Resume version            | Create a hidden version for recruiters, showing your resume, skills, projects, and contact information              |
+| 🤝 Corporate event version   | Highlight your current role, projects, collaboration direction, and contact entry for events or business networking |
+| 🍸 Social / casual version   | Show a more relaxed identity, interests, social links, photos, and recent status                                    |
+| 🚀 Startup / product version | Display your products, demos, media links, case studies, and contact entry                                          |
+| 🎓 Student portfolio         | Show school projects, software skills, personal experience, and screenshots                                         |
+| 🎨 Creator homepage          | Display videos, social accounts, representative work, and collaboration details                                     |
 
-## Core Features
+Not suitable for:
 
-- Public personal homepage with avatar, bio, tags, social links, contact entry, and portfolio cards.
-- Password-protected admin at `/admin/login` and visual editor at `/admin`.
-- Desktop and mobile layout editing with separate card sizes per device.
-- Card-based content blocks for projects, links, images, text, status updates, videos, and social links.
-- Full-width text blocks for section-style headings and notes; they are blocks, not containers.
-- Shared content ordering so cards can sit above, below, or between text blocks.
-- Image upload and crop workflow with fixed and custom crop ratios, stored in Vercel Blob.
-- Project settings for admin naming, public title, description, URL, SEO, theme, and appearance.
-- Multilingual and multi-version content snapshots.
-- Hidden audience versions such as `/u1`, persisted for a limited number of homepage visits through HTTP-only cookies.
-- JSON config import/export from the admin editor.
-- No traditional database; production config is stored in Vercel Blob.
+* Complex CMS projects
+* Multi-user collaborative admin systems
+* Strict permission systems
+* Sites that store private data
+* E-commerce, comments, memberships, payments, or business workflows
+* Pure GitHub Pages / static HTML deployment
 
-## Stack
+---
 
-- Next.js App Router
-- TypeScript
-- Tailwind CSS
-- dnd-kit
-- Vercel Blob
-- bcryptjs
-- Zod
-- Lucide React
-- Sonner
+## 🕶️ What are hidden versions?
 
-## Quick Start
+Hidden versions are one of the most important features of this project.
+
+You can create multiple audience-specific versions in the admin panel, such as:
+
+```text
+resume
+job
+social
+bar
+event
+partner
+v1
+```
+
+Each version can have its own:
+
+* Profile information
+* Visible or hidden modules
+* Bio text
+* Avatar or visual style
+* Project order
+* Content emphasis
+* Layout and block arrangement
+
+For example:
+
+| Version   | Audience                               | Focus                                                                 |
+| --------- | -------------------------------------- | --------------------------------------------------------------------- |
+| `resume`  | Recruiters, HR, interviewers           | Education, skills, projects, resume, contact information              |
+| `social`  | New friends or casual contacts         | Interests, social accounts, casual introduction, current status       |
+| `bar`     | Bar, meetup, or casual social scenes   | More lifestyle-oriented identity, interests, photos, and social links |
+| `event`   | Corporate events, meetups, exhibitions | Current identity, projects, demos, collaboration direction            |
+| `partner` | Potential partners                     | Business projects, case studies, capabilities, contact entry          |
+
+Example access URL:
+
+```text
+https://your-site.com/resume
+```
+
+When a visitor enters through this suffix, the system stores the selected version in an HTTP-only cookie. The visitor is then redirected back to the clean root URL:
+
+```text
+https://your-site.com
+```
+
+For the next limited number of visits, they will continue seeing that hidden version.
+
+This is useful when you want to show different information to different people without maintaining multiple websites.
+
+> Hidden versions are not a strict access-control system. They are designed for audience-specific presentation, not for storing secrets, documents, credentials, or sensitive personal data.
+
+---
+
+## 🌐 Versions and languages
+
+Bio Blocks Studio does not use a simple “global language switch” model.
+
+Instead, the content structure is:
+
+```text
+Variant
+└── Locale
+    └── Independent content for the selected version and language
+```
+
+That means each version can have its own language variants.
+
+For example:
+
+```text
+resume:zh-Hans
+resume:en
+social:zh-Hans
+event:zh-Hans
+event:en
+partner:en
+```
+
+This allows you to create:
+
+* A resume version in both Chinese and English
+* A social version only in Chinese
+* An event version in both Chinese and English
+* A partnership version only in English
+* Different tone, content, modules, and priorities for each audience
+
+This is more flexible than a normal multilingual website because you are not forced to translate the same content everywhere. You can prepare different expressions for different audiences.
+
+---
+
+## 🧱 Content blocks
+
+Current supported block types include:
+
+* Project card
+* Link card
+* Image card
+* Text card
+* Video card
+* Social card
+* Status card
+* Full-width section text block
+
+A full-width section block is a content block, not a container. It can be used to separate areas such as:
+
+```text
+Selected Projects
+About Me
+Contact
+Recent Work
+```
+
+All blocks share the same ordering system, so section text blocks can appear above, below, or between cards.
+
+---
+
+## 🛠️ Tech stack
+
+* Next.js App Router
+* TypeScript
+* Tailwind CSS
+* dnd-kit
+* Vercel Blob
+* bcryptjs
+* Zod
+* Lucide React
+* Sonner
+
+---
+
+## 🚀 Quick deployment
+
+Vercel is the recommended deployment platform.
+
+The full application does not support pure GitHub Pages or static HTML deployment because it uses dynamic Next.js routes, cookies, admin API routes, login sessions, and Vercel Blob writes.
+
+GitHub is suitable for hosting the source code. Vercel is suitable for running the application.
+
+---
+
+### 🤖 Option 1: Deploy with an AI agent
+
+If you use Codex, Claude Code, Cursor, or another coding agent, you can copy the prompt below and ask the agent to guide you through deployment.
+
+```text
+Please help me deploy this project:
+
+GitHub repository:
+https://github.com/JiahaoTang-Alvin/personal-site-studio
+
+Goal:
+Deploy an editable modular personal homepage to Vercel.
+
+My admin login password:
+
+Please follow these steps:
+
+1. Use the GitHub repository above to create and deploy a new project on Vercel.
+   This is a Next.js App Router application and requires the Vercel runtime.
+   Do not convert it into a GitHub Pages static export.
+
+2. If Vercel or GitHub requires authorization, repository import, template copying, or project creation, guide me through the required manual steps.
+
+3. Set the following environment variables for the Vercel project:
+
+   NEXT_PUBLIC_SITE_URL=https://my-domain-or-vercel-domain
+   ADMIN_PASSWORD=the-admin-password-I-provided-above
+
+4. Create a Vercel Blob Store and connect it to this Vercel project.
+   The Blob Store should use Public access because the homepage config and uploaded images need to be readable by the public page.
+
+5. Make sure the project has the Blob read-write token environment variable:
+
+   BLOB_READ_WRITE_TOKEN
+
+   Do not create only BLOB_STORE_ID or BLOB_WEBHOOK_PUBLIC_KEY.
+   Saving config and uploading images require the read-write token.
+
+6. Deploy or redeploy Production so the new environment variables take effect.
+
+7. After deployment, open:
+
+   https://your-domain/admin/login
+
+   Log in with ADMIN_PASSWORD.
+
+Before executing, tell me which steps require my manual authorization, such as GitHub login, Vercel login, creating Blob, connecting the project, or production deployment.
+```
+
+> Do not put your admin password in a public repository, README, Issue, public chat, or frontend code. To change the password later, update `ADMIN_PASSWORD` in Vercel environment variables and redeploy Production.
+
+---
+
+### 🧭 Option 2: Manual deployment on Vercel
+
+<details>
+<summary>Show full manual deployment steps</summary>
+
+#### 1. Open Vercel and create a new project
+
+Open [Vercel](https://vercel.com/) and click:
+
+```text
+Add New... -> Project
+```
+
+<img width="720" alt="Vercel add new project" src="https://github.com/user-attachments/assets/2e8a7495-5d1d-43a1-a8c2-fbdb76bee8d0" />
+
+---
+
+#### 2. Import the GitHub repository
+
+Enter the repository URL:
+
+```text
+https://github.com/JiahaoTang-Alvin/personal-site-studio
+```
+
+<img width="720" alt="Import GitHub repository" src="https://github.com/user-attachments/assets/bbdabceb-1b23-46c0-8609-033ed04c7d04" />
+
+---
+
+#### 3. Keep default project settings
+
+On the New Project page, keep the default settings:
+
+```text
+Framework Preset: Next.js
+Root Directory: ./
+```
+
+<img width="720" alt="Vercel project settings" src="https://github.com/user-attachments/assets/5706e98b-edaa-4a04-b7f4-ba09b54fc936" />
+
+---
+
+#### 4. Add the admin password
+
+Expand **Environment Variables** and add:
+
+```env
+ADMIN_PASSWORD=your-admin-login-password
+```
+
+Use a password phrase that you can remember but others cannot easily guess.
+
+<img width="720" alt="Add ADMIN_PASSWORD env" src="https://github.com/user-attachments/assets/f622bf09-ab32-488e-8f4b-8f297593a0d7" />
+
+---
+
+#### 5. First deployment
+
+Click **Deploy** and wait for the first deployment to finish.
+
+<img width="720" alt="Deploy project" src="https://github.com/user-attachments/assets/8aceebcc-b071-4428-8add-b75f10c8c440" />
+
+> After the first deployment, the public page may be available, but saving content and uploading images still require Vercel Blob setup.
+
+---
+
+#### 6. Open Storage
+
+Enter the deployed Vercel project and click **Storage** in the left sidebar.
+
+<img width="720" alt="Open Storage" src="https://github.com/user-attachments/assets/0d5fdceb-7359-4dd8-8c5e-2567970586c6" />
+
+---
+
+#### 7. Create a Blob Store
+
+Click **Create Database** and choose **Blob**.
+
+<img width="720" alt="Create Database" src="https://github.com/user-attachments/assets/0c8733ca-aac0-4772-8d4d-d066b7c4c8eb" />
+
+<img width="720" alt="Choose Blob" src="https://github.com/user-attachments/assets/db95a23d-09bf-4956-bbc7-ef0c8622c3c3" />
+
+---
+
+#### 8. Configure the Blob Store
+
+Set a Blob Store name, for example:
+
+```text
+personal-site-studio-blob
+```
+
+Choose a region close to your main visitors.
+If most visitors are from China, Singapore, or Southeast Asia, choose Hong Kong or Singapore if available.
+
+Set Access to:
+
+```text
+Public
+```
+
+Then click **Create**.
+
+<img width="720" alt="Create public Blob store" src="https://github.com/user-attachments/assets/c95b133d-b32e-4b9f-a22d-98464d5f42ee" />
+
+---
+
+#### 9. Check project connection
+
+If a project connection dialog appears after creation, you can close it first. Vercel may have already connected the Blob Store to the current project. Clicking Connect again may show that it is already connected.
+
+Return to **Storage** and open the Blob Store you just created.
+
+<img width="720" alt="Open Blob store" src="https://github.com/user-attachments/assets/44937894-e745-4576-b028-f22c024eda85" />
+
+---
+
+#### 10. Open Projects
+
+Inside the Blob Store, click **Projects** in the left sidebar.
+
+<img width="720" alt="Blob projects" src="https://github.com/user-attachments/assets/d15918a9-0f5a-497d-bd37-47769ac540db" />
+
+---
+
+#### 11. Update project connection
+
+Find your project in the Projects list. At first, the Info column usually only contains:
+
+```text
+BLOB_STORE_ID
+BLOB_WEBHOOK_PUBLIC_KEY
+```
+
+Click the three-dot menu **...** on the right side of the project row and choose **Update Project Connection**.
+
+<img width="720" alt="Update project connection" src="https://github.com/user-attachments/assets/311aa46b-648d-4433-a7fb-b7ef1d683d1e" />
+
+---
+
+#### 12. Add the read-write token
+
+Check:
+
+```text
+Add read-write token env var to this connection
+```
+
+<img width="720" alt="Add read-write token" src="https://github.com/user-attachments/assets/62a3f6f0-ade3-43e1-a0b8-c62ffde608dd" />
+
+Click **Save Changes**.
+
+After saving, the Info column should include:
+
+```text
+BLOB_READ_WRITE_TOKEN
+BLOB_STORE_ID
+BLOB_WEBHOOK_PUBLIC_KEY
+```
+
+<img width="720" alt="Blob env vars ready" src="https://github.com/user-attachments/assets/5ccf416e-8148-45bd-aac7-5cb27b30a4e3" />
+
+---
+
+#### 13. Redeploy Production
+
+Go back to the project and open **Deployments**.
+
+Find the latest deployment and click the three-dot menu **...**.
+
+<img width="720" alt="Open deployments menu" src="https://github.com/user-attachments/assets/eca8b90b-7a85-4c99-a57c-2e72e9f56345" />
+
+Choose **Redeploy** and wait until the status becomes Ready.
+
+---
+
+#### 14. Log in to the admin panel
+
+Open:
+
+```text
+https://your-domain/admin/login
+```
+
+Log in with your `ADMIN_PASSWORD`.
+
+<img width="720" alt="Admin login" src="https://github.com/user-attachments/assets/78d522b2-8ba8-4734-998f-b9e216101822" />
+
+---
+
+#### 15. Initialize site settings
+
+After logging in, open **Project Settings** and configure:
+
+* Project name
+* Public site title
+* Site description
+* Site URL
+* SEO metadata
+* Languages
+* Versions
+* Theme and appearance
+
+Then save once to write the production config into Vercel Blob.
+
+<img width="720" alt="Admin project settings" src="https://github.com/user-attachments/assets/be23c48d-2175-491b-891b-8656f8578dfb" />
+
+---
+
+#### 16. Change admin password later
+
+To change the admin password later, go to the Vercel project:
+
+```text
+Settings -> Environment Variables
+```
+
+Update:
+
+```env
+ADMIN_PASSWORD=new-admin-password
+```
+
+Then redeploy Production.
+
+`SESSION_SECRET` is not the login password. You only need to update it if you want all previous login sessions to become invalid immediately.
+
+<img width="720" alt="Update env vars" src="https://github.com/user-attachments/assets/51074966-f0d2-4b4e-bf38-42c1ab824c34" />
+
+</details>
+
+---
+
+## 💻 Local development
 
 ```bash
 npm install
@@ -76,11 +550,17 @@ Open:
 http://localhost:3000
 ```
 
-The public page works without Vercel Blob. When Blob is not configured, the site falls back to `lib/default-site-config.ts`.
+The public page can run without Vercel Blob. In that case, it falls back to the default content in:
 
-To test admin login, saving, and uploads locally, configure the environment variables below.
+```text
+lib/default-site-config.ts
+```
 
-## Environment Variables
+To test admin login, saving, and uploads locally, configure `.env.local`.
+
+---
+
+## 🔐 Environment variables
 
 Create `.env.local` from `.env.example`:
 
@@ -90,135 +570,69 @@ BLOB_READ_WRITE_TOKEN=
 ADMIN_PASSWORD=
 ```
 
-Simplest production setup:
+Basic variables:
 
-- `BLOB_READ_WRITE_TOKEN`: Vercel Blob read/write token for saving config and uploaded images.
-- `ADMIN_PASSWORD`: admin login password. This is the easiest option for no-code users because it can be typed directly into Vercel Environment Variables; the Value can be the password you want to use.
+| Variable                | Description                                                         |
+| ----------------------- | ------------------------------------------------------------------- |
+| `NEXT_PUBLIC_SITE_URL`  | Public site URL. This can be exposed to the browser                 |
+| `ADMIN_PASSWORD`        | Admin login password                                                |
+| `BLOB_READ_WRITE_TOKEN` | Vercel Blob read/write token for saving config and uploading images |
 
-Optional stronger setup:
+Optional variables:
 
-- `ADMIN_PASSWORD_HASH`: bcrypt hash for the admin password. If set, it takes priority over `ADMIN_PASSWORD`.
-- `SESSION_SECRET`: random session-signing secret. It can be left empty; when it is empty, the app derives a signing secret from the admin credential. If you set it manually, use at least 32 characters.
+| Variable              | Description                                                                        |
+| --------------------- | ---------------------------------------------------------------------------------- |
+| `ADMIN_PASSWORD_HASH` | bcrypt hash of the admin password. If set, it takes priority over `ADMIN_PASSWORD` |
+| `SESSION_SECRET`      | Random secret for signing admin login sessions. At least 32 characters recommended |
 
-If you do not want to store a plain password in Vercel, generate the admin password hash:
-
-```bash
-node -e "const bcrypt=require('bcryptjs'); bcrypt.hash(process.argv[1], 12).then(console.log)" "your-password"
-```
-
-Put the command output into `ADMIN_PASSWORD_HASH`. When logging in to the admin page, use the original plain password, meaning `your-password` from the command above, not the generated hash.
-
-If you want to generate a session secret manually:
-
-```bash
-openssl rand -base64 48
-```
-
-Never expose `BLOB_READ_WRITE_TOKEN`, `ADMIN_PASSWORD`, `ADMIN_PASSWORD_HASH`, or `SESSION_SECRET` with a `NEXT_PUBLIC_` prefix. They must stay server-only. Only `NEXT_PUBLIC_SITE_URL` is safe to expose to the browser.
-
-## Three Deployment Options
-
-### Option 1: Ask An AI Agent To Deploy It
-
-If you use Codex, Claude Code, Cursor, or another coding agent, copy this prompt and let the agent guide the deployment.
+Do not add the `NEXT_PUBLIC_` prefix to these variables:
 
 ```text
-Please help me deploy this project:
-
-GitHub repository: https://github.com/JiahaoTang-Alvin/personal-site-studio
-Goal: deploy an editable personal homepage to Vercel.
-
-Please do the following:
-1. Fork or clone this repository into my GitHub account and install dependencies.
-2. Confirm this is a Next.js App Router app that needs the Vercel runtime. Do not convert it to a GitHub Pages static export.
-3. Prepare a Vercel project and enable Vercel Blob.
-4. Ask me for an admin login password. Do not write the plain password into code or README files.
-5. Use the no-code setup by default: set my chosen admin password as the Vercel environment variable ADMIN_PASSWORD. When I sign in at /admin/login later, I should enter the password I chose.
-6. For the safer server-side setup, you may convert that password into a bcrypt hash and set it as ADMIN_PASSWORD_HASH. Important: even when using the hash, I still sign in with the original password. I do not need to remember the hash.
-7. SESSION_SECRET is not the admin login password. It is only the session signing key. It can be left empty because the app derives one from the admin credential. If you set it manually, generate random text with at least 32 characters.
-8. Set at least these Vercel environment variables. The only login-related variable is ADMIN_PASSWORD:
-   NEXT_PUBLIC_SITE_URL=https://my-domain-or-vercel-domain
-   BLOB_READ_WRITE_TOKEN=the Vercel Blob read/write token
-   ADMIN_PASSWORD=the admin password I provide
-9. Deploy to Vercel.
-10. After deployment, open /admin/login and confirm I can log in with the original password.
-11. After login, open Project Settings, fill in the site title, description, URL, SEO fields, versions, and languages, then save once to write the production config to Vercel Blob.
-
-Before making changes, tell me which steps need my manual authorization, such as GitHub, Vercel login, or Blob creation.
+BLOB_READ_WRITE_TOKEN
+ADMIN_PASSWORD
+ADMIN_PASSWORD_HASH
+SESSION_SECRET
 ```
 
-This path is useful if you do not want to manually wire GitHub, Vercel, and environment variables. You still own the admin password; do not write it into a public repository, README, or public chat transcript. To change the password later, update `ADMIN_PASSWORD` in Vercel and redeploy production.
+They must stay server-side only. Only `NEXT_PUBLIC_SITE_URL` may be exposed to the browser.
 
-### Option 2: Import From GitHub Directly Into Vercel
+---
 
-1. Fork or copy this repository into your GitHub account.
-2. In Vercel, choose **Add New... -> Project** and import the GitHub repository.
-3. On the New Project page, keep the default settings:
-   - Framework Preset: `Next.js`
-   - Root Directory: `./`
-4. Expand **Environment Variables** and add these rows in the Key / Value fields:
+## 🧭 Routes
 
-   ```env
-   NEXT_PUBLIC_SITE_URL=https://your-domain.com
-   BLOB_READ_WRITE_TOKEN=your-vercel-blob-read-write-token
-   ADMIN_PASSWORD=your-admin-login-password
-   ```
+| Route               | Description                                                     |
+| ------------------- | --------------------------------------------------------------- |
+| `/`                 | Public personal homepage                                        |
+| `/admin/login`      | Admin login                                                     |
+| `/admin`            | Visual admin editor                                             |
+| `/api/admin/config` | Read and save config after login                                |
+| `/api/admin/upload` | Upload images after login                                       |
+| `/[accessCode]`     | Hidden version entry, such as `/resume`, `/event`, or `/social` |
 
-   The only login-related variable is `ADMIN_PASSWORD`. Its Value can be any strong password you want to use, ideally a phrase you can remember and other people cannot guess.
+---
 
-5. For `Environments`, choose `Production and Preview`, or choose only `Production`.
-6. Click **Deploy**.
-7. After deployment, enable Vercel Blob in the Vercel project and set the Blob read/write token as `BLOB_READ_WRITE_TOKEN`. If you already created the Blob token before deploying, you can enter it in step 4. If you add or change environment variables after deployment, redeploy production once.
-8. Open `https://your-domain.com/admin/login` and log in with the original password from `ADMIN_PASSWORD`.
-9. In the admin editor, open Project Settings and set the project name, public title, description, URL, SEO fields, versions, and languages.
-10. Save once to persist the production config to Vercel Blob.
+## 🗂️ Data model
 
-To change the admin password later, update `ADMIN_PASSWORD` in **Settings -> Environment Variables** and redeploy production. `SESSION_SECRET` is not the login password; update it only when you want every old login session to expire immediately.
+The site is driven by a validated `SiteConfig`.
 
-### Option 3: Publish To GitHub Manually, Then Connect Vercel
+Main fields:
 
-If you already have a local copy, create a GitHub repository and push the source:
+| Field             | Description                                                                                   |
+| ----------------- | --------------------------------------------------------------------------------------------- |
+| `profile`         | Avatar, name, bio, tags, social links, and profile display settings                           |
+| `sections`        | Legacy compatibility field. The current editor keeps this empty                               |
+| `blocks`          | Project, link, image, text, social, video, status cards, and full-width `section` text blocks |
+| `theme`           | Colors, border radius, shadows, and font settings                                             |
+| `settings`        | Project name, public title, description, URL, SEO, languages, versions, and feature toggles   |
+| `contentVariants` | Optional version / language content snapshots. Keys use the `variantId:locale` format         |
 
-```bash
-git init
-git add .
-git commit -m "Initial personal site studio"
-git branch -M main
-git remote add origin https://github.com/your-name/your-repo.git
-git push -u origin main
-```
-
-Then import that GitHub repository into Vercel and follow Option 2 to configure Blob and environment variables.
-
-Important: the full app does not support pure GitHub Pages / static HTML hosting. It uses dynamic Next.js routes, cookies, admin API routes, login sessions, and Vercel Blob writes. GitHub is a good place to host the source code; Vercel remains the recommended runtime host.
-
-## Routes
-
-- `/`: public personal homepage
-- `/admin/login`: admin login
-- `/admin`: visual admin editor
-- `/api/admin/config`: authenticated config read/write
-- `/api/admin/upload`: authenticated image upload
-- `/[accessCode]`: hidden version entry, such as `/u1`
-
-## Data Model
-
-The site is driven by one validated `SiteConfig` object:
-
-- `profile`: avatar, name, bio, tags, social links, and profile module visibility.
-- `sections`: legacy compatibility field; the current editor keeps it empty.
-- `blocks`: project, link, image, text, social, video, and status cards, plus full-width `section` text blocks.
-- `theme`: colors, radius, shadow, and font settings.
-- `settings`: project name, public title, description, URL, SEO, languages, variants, and feature toggles.
-- `contentVariants`: optional version/locale content snapshots keyed as `variantId:locale`.
-
-Production config is saved to Vercel Blob at:
+Production config is stored in Vercel Blob:
 
 ```text
 config/site-config.json
 ```
 
-Uploaded images are saved under:
+Uploaded images are stored in:
 
 ```text
 images/avatar
@@ -227,15 +641,27 @@ images/gallery
 images/qrcode
 ```
 
-Blob-hosted config and uploaded images are public-readable. Do not store secrets, private notes, unpublished credentials, or sensitive personal data in the config.
+The config and images stored in Blob are publicly readable. Do not store secrets, private notes, unreleased credentials, or sensitive personal data in the config.
 
-## Config Import And Export
+---
 
-The admin Project Settings panel can export the full `SiteConfig` as JSON. Importing JSON replaces only the current editor draft; click Save after reviewing it to write the imported config to Vercel Blob.
+## 📦 Config import and export
 
-Use exports for backups, deployment migration, local-to-production handoff, or reusing a site structure across multiple deployments.
+The admin panel supports exporting the full `SiteConfig` JSON from **Project Settings**.
 
-## Validation
+You can use it to:
+
+* Back up your current site
+* Migrate to a new Vercel project
+* Reuse the same structure across multiple sites
+* Sync local testing content to production
+* Quickly duplicate a homepage template for another person
+
+Importing JSON only replaces the current editing draft. It will not write to Vercel Blob until you review the content and click Save.
+
+---
+
+## ✅ Validation
 
 ```bash
 npm run lint
@@ -244,20 +670,68 @@ npm run build
 npm audit --audit-level=moderate
 ```
 
-## Documentation
+---
 
-- [Admin editor notes](docs/admin-editor-notes.md)
-- [Project background for AI agents](docs/project-background.md)
-- [Security and deployment notes](docs/security-and-deployment.md)
+## 📚 Documentation
 
-## Design Principles
+* [Admin editor notes](docs/admin-editor-notes.md)
+* [Project background for AI agents](docs/project-background.md)
+* [Security and deployment notes](docs/security-and-deployment.md)
 
-- Content first: the first screen should show identity and featured work directly.
-- Visual maintenance: routine content updates should happen in the admin editor, not through code edits.
-- Small and reshapeable: the template stays lightweight so it can adapt to a personal brand.
-- Public read, admin write: public pages do not write data; all saves and uploads require an authenticated admin session.
-- Clear public-config boundary: Vercel Blob is for public display content, not secrets.
+---
 
-## Template Status
+## 🧠 Design principles
 
-This is a usable template that is still evolving. The current focus is personal homepage content, portfolio cards, visual editing, multilingual/multi-version snapshots, and Vercel Blob persistence. Migration tooling, revision history, login rate limiting, and more complex permission systems are not built in yet.
+* **Build a homepage like stacking blocks**
+  Users should be able to maintain most content through visual editing instead of code changes.
+
+* **Content first**
+  The first screen should clearly show identity, key projects, and contact entry.
+
+* **Independent modules**
+  Each content block should be movable, resizable, hideable, and reusable.
+
+* **Version before language**
+  Different audiences can see different versions. Each version can then have its own languages.
+
+* **Public page reads, admin writes**
+  The public page only displays content. Saving config and uploading images must go through the logged-in admin panel.
+
+* **Hidden versions are for targeted presentation**
+  Hidden versions help show different content to different audiences, but they should not be treated as a strict permission system.
+
+* **Lightweight and easy to deploy**
+  No traditional database is required, making the project easier to deploy, migrate, and maintain.
+
+* **Clear public data boundary**
+  Vercel Blob is suitable for public display content, not for storing secrets.
+
+---
+
+## 🚧 Project status
+
+This is a usable template that is still evolving. Current focus areas:
+
+* Personal homepage display
+* Visual admin editor
+* Modular card layout
+* Desktop / mobile layout adaptation
+* Multilingual content
+* Hidden versions
+* Vercel Blob persistence
+
+Possible future improvements:
+
+* More complete version history
+* More detailed layout controls
+* More block types
+* Better template presets
+* Improved migration tools
+* Login rate limiting
+* More advanced permission system
+
+---
+
+## License
+
+MIT
