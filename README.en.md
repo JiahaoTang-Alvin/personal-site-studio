@@ -1,15 +1,21 @@
-# Personal Site Studio
+<div align="center">
 
-A visual personal homepage studio for building a bio page, portfolio, link hub, and lightweight project showcase with Next.js.
+<h1>Personal Site Studio</h1>
 
-No traditional database is required. The public page renders your site, `/admin` edits it, and production content is stored in Vercel Blob.
+<p>A visual personal homepage studio for building a bio page, portfolio, link hub, and lightweight project showcase with Next.js.</p>
 
-[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
-[![Next.js](https://img.shields.io/badge/Next.js-16-black.svg)](https://nextjs.org/)
-[![TypeScript](https://img.shields.io/badge/TypeScript-5-blue.svg)](https://www.typescriptlang.org/)
-[![Vercel](https://img.shields.io/badge/Deploy-Vercel-black.svg)](https://vercel.com/)
+<p>No traditional database is required. The public page renders your site, <code>/admin</code> edits it, and production content is stored in Vercel Blob.</p>
 
-English | [中文](README.md)
+<p>
+  <a href="LICENSE"><img alt="License: MIT" src="https://img.shields.io/badge/License-MIT-blue.svg"></a>
+  <a href="https://nextjs.org/"><img alt="Next.js" src="https://img.shields.io/badge/Next.js-16-black.svg"></a>
+  <a href="https://www.typescriptlang.org/"><img alt="TypeScript" src="https://img.shields.io/badge/TypeScript-5-blue.svg"></a>
+  <a href="https://vercel.com/"><img alt="Vercel" src="https://img.shields.io/badge/Deploy-Vercel-black.svg"></a>
+</p>
+
+<p>English | <a href="README.md">中文</a></p>
+
+</div>
 
 ---
 
@@ -259,4 +265,3 @@ npm audit --audit-level=moderate
 ## Template Status
 
 This is a usable template that is still evolving. The current focus is personal homepage content, portfolio cards, visual editing, multilingual/multi-version snapshots, and Vercel Blob persistence. Migration tooling, revision history, login rate limiting, and more complex permission systems are not built in yet.
-

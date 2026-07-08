@@ -1,15 +1,21 @@
-# Personal Site Studio · 个人主页工作室
+<div align="center">
 
-把个人主页、作品集、链接页和轻量作品展示，做成一个可视化编辑、可部署、可复用的 Next.js 模板。
+<h1>Personal Site Studio · 个人主页工作室</h1>
 
-无需数据库。公开页面负责展示，`/admin` 负责编辑，内容通过 Vercel Blob 保存。
+<p>把个人主页、作品集、链接页和轻量作品展示，做成一个可视化编辑、可部署、可复用的 Next.js 模板。</p>
 
-[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
-[![Next.js](https://img.shields.io/badge/Next.js-16-black.svg)](https://nextjs.org/)
-[![TypeScript](https://img.shields.io/badge/TypeScript-5-blue.svg)](https://www.typescriptlang.org/)
-[![Vercel](https://img.shields.io/badge/Deploy-Vercel-black.svg)](https://vercel.com/)
+<p>无需数据库。公开页面负责展示，<code>/admin</code> 负责编辑，内容通过 Vercel Blob 保存。</p>
 
-[English](README.en.md) | 中文
+<p>
+  <a href="LICENSE"><img alt="License: MIT" src="https://img.shields.io/badge/License-MIT-blue.svg"></a>
+  <a href="https://nextjs.org/"><img alt="Next.js" src="https://img.shields.io/badge/Next.js-16-black.svg"></a>
+  <a href="https://www.typescriptlang.org/"><img alt="TypeScript" src="https://img.shields.io/badge/TypeScript-5-blue.svg"></a>
+  <a href="https://vercel.com/"><img alt="Vercel" src="https://img.shields.io/badge/Deploy-Vercel-black.svg"></a>
+</p>
+
+<p><a href="README.en.md">English</a> | 中文</p>
+
+</div>
 
 ---
 
