@@ -10,20 +10,26 @@ export const blockGridClassByDevice: Record<LayoutDevice, string> = {
 
 export const blockSizeClassByDevice: Record<LayoutDevice, Record<BlockSize, string>> = {
   desktop: {
-    "small-square": "col-span-4 row-span-1",
-    wide: "col-span-8 row-span-1",
-    "large-square": "col-span-8 row-span-2",
-    "full-wide": "col-span-12 row-span-1",
-    tall: "col-span-4 row-span-2",
-    "section-text": "col-span-12 row-span-1"
+    "wide-short": "col-span-8 row-span-1",
+    "small-square": "col-span-4 row-span-2",
+    wide: "col-span-8 row-span-2",
+    "large-square": "col-span-8 row-span-4",
+    "full-wide": "col-span-12 row-span-2",
+    "full-tall": "col-span-12 row-span-4",
+    "full-square": "col-span-12 row-span-6",
+    tall: "col-span-4 row-span-4",
+    "section-text": "col-span-12 row-span-2"
   },
   mobile: {
-    "small-square": "col-span-6 row-span-1",
-    wide: "col-span-12 row-span-1",
-    "large-square": "col-span-12 row-span-2",
-    "full-wide": "col-span-12 row-span-1",
-    tall: "col-span-6 row-span-2",
-    "section-text": "col-span-12 row-span-1"
+    "wide-short": "col-span-12 row-span-1",
+    "small-square": "col-span-6 row-span-2",
+    wide: "col-span-12 row-span-2",
+    "large-square": "col-span-12 row-span-4",
+    "full-wide": "col-span-12 row-span-2",
+    "full-tall": "col-span-12 row-span-4",
+    "full-square": "col-span-12 row-span-6",
+    tall: "col-span-6 row-span-4",
+    "section-text": "col-span-12 row-span-2"
   }
 };
 
@@ -44,7 +50,7 @@ export function getDefaultGridSpan(size: BlockSize, device: LayoutDevice) {
     return size === "small-square" || size === "tall" ? 6 : 12;
   }
   if (size === "small-square" || size === "tall") return 4;
-  if (size === "wide") return 8;
+  if (size === "wide" || size === "wide-short") return 8;
   if (size === "large-square") return 8;
   return 12;
 }
@@ -59,7 +65,10 @@ export function getLogicalColumnSpan(size: BlockSize, device: LayoutDevice) {
 }
 
 export function getDefaultRowSpan(size: BlockSize) {
-  return size === "large-square" || size === "tall" ? 2 : 1;
+  if (size === "wide-short") return 1;
+  if (size === "full-square") return 6;
+  if (size === "large-square" || size === "tall" || size === "full-tall") return 4;
+  return 2;
 }
 
 export function getBlockLogicalColumnStart(block: Block, device: LayoutDevice) {

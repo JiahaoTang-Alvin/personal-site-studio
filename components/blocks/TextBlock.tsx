@@ -12,7 +12,7 @@ export function TextBlock({ block }: { block: Block }) {
     return (
       <div
         className={cn(
-          "flex h-full min-h-24 w-full",
+          "flex h-full min-h-0 w-full",
           verticalAlign === "top" && "items-start",
           verticalAlign === "center" && "items-center",
           verticalAlign === "bottom" && "items-end"

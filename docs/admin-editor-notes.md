@@ -1,6 +1,6 @@
 # Admin Editor Notes
 
-Last updated: 2026-07-06
+Last updated: 2026-07-08
 
 This document records the current admin editor behavior and the main implementation decisions, so future edits can continue from the same mental model.
 
@@ -15,9 +15,12 @@ This document records the current admin editor behavior and the main implementat
 ## Grid sizing
 
 - Blocks use grid row spans instead of arbitrary pixel heights.
-- A 1x1 square is the base cell.
+- The CSS grid uses a half-height row unit. Existing one-row cards span two CSS rows, which preserves the old visual size while allowing compact text blocks to use a half-height row.
+- A 1x1 square is still the visual base cell.
+- A 2x1/2 block spans two logical columns and one half-height row.
 - A 2x1 block has the same height as a 1x1 block.
 - A 2x2 block has the height of two rows plus the row gap.
+- Full-width cards can use 3x1, 3x2, or 3x3 presets on desktop; on mobile they remain full width with matching height presets.
 - Public and admin block grids use a 12-column CSS grid, but editor placement is interpreted as a simpler logical grid: 3 columns on desktop and 2 columns on mobile.
 - Small or partial-width blocks can intentionally sit at the left, center, or right on desktop, or left/right on mobile, without forcing every earlier slot to be filled.
 - Optional per-device placement is stored on the block as `placements.desktop.columnStart` / `placements.desktop.rowStart` and `placements.mobile.columnStart` / `placements.mobile.rowStart`.
@@ -28,9 +31,10 @@ This document records the current admin editor behavior and the main implementat
 - Admin grid sizing uses 12 columns:
   - Desktop small/tall: 4 columns.
   - Desktop wide/large-square: 8 columns.
-  - Desktop full-wide: 12 columns.
-  - Mobile small/tall: 6 columns.
-- Mobile wide/large-square/full-wide: 12 columns.
+- Desktop full-wide: 12 columns.
+- Desktop full-tall/full-square: 12 columns.
+- Mobile small/tall: 6 columns.
+- Mobile wide/large-square/full-wide/full-tall/full-square: 12 columns.
 - Text blocks use `type: "section"` and `size: "section-text"`. They always occupy the full content width: 3 logical columns on desktop and 2 logical columns on mobile.
 
 ## Resize behavior

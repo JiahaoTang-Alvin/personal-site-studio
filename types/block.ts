@@ -1,4 +1,13 @@
-export type BlockSize = "small-square" | "wide" | "large-square" | "full-wide" | "tall" | "section-text";
+export type BlockSize =
+  | "wide-short"
+  | "small-square"
+  | "wide"
+  | "large-square"
+  | "full-wide"
+  | "full-tall"
+  | "full-square"
+  | "tall"
+  | "section-text";
 export type LayoutDevice = "desktop" | "mobile";
 
 export type BlockPlacement = {

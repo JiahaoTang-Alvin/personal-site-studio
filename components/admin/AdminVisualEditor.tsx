@@ -230,19 +230,25 @@ function getLocalizedTemplateDescription(template: BlockTemplate, language: Edit
 }
 
 const blockSizePresets: { size: BlockSize; label: string; icon: React.ReactNode }[] = [
+  { size: "wide-short", label: "横向 2x1/2", icon: <RectangleHorizontal className="scale-y-50" /> },
   { size: "small-square", label: "小方块", icon: <Square /> },
   { size: "wide", label: "横向 2 格", icon: <RectangleHorizontal /> },
   { size: "large-square", label: "大方块 2x2", icon: <Square className="scale-125" /> },
   { size: "full-wide", label: "整行", icon: <RectangleHorizontal className="scale-125" /> },
+  { size: "full-tall", label: "整行 3x2", icon: <AppWindow className="scale-125" /> },
+  { size: "full-square", label: "整行 3x3", icon: <Square className="scale-150" /> },
   { size: "tall", label: "竖向", icon: <RectangleVertical /> }
 ];
 
 function getLocalizedBlockSizeLabel(size: BlockSize, language: EditorLanguage) {
   const copy = editorCopy[language];
+  if (size === "wide-short") return copy.blockSizeWideShort;
   if (size === "small-square") return copy.blockSizeSmallSquare;
   if (size === "wide") return copy.blockSizeWide;
   if (size === "large-square") return copy.blockSizeLargeSquare;
   if (size === "full-wide") return copy.blockSizeFullWide;
+  if (size === "full-tall") return copy.blockSizeFullTall;
+  if (size === "full-square") return copy.blockSizeFullSquare;
   if (size === "tall") return copy.blockSizeTall;
   return size;
 }
@@ -3592,11 +3598,12 @@ function getResizeMetrics(handle: HTMLElement, device: LayoutDevice): ResizeMetr
 
 function getPointerResizeDraft(event: PointerEvent, metrics: ResizeMetrics, device: LayoutDevice): BlockResizeDraft {
   const rawWidth = Math.max(metrics.columnWidth * metrics.minSpan, event.clientX - metrics.left);
-  const rawHeight = Math.max(metrics.cellSize * 0.75, event.clientY - metrics.top);
+  const rawHeight = Math.max((metrics.cellSize - metrics.gap) / 2, event.clientY - metrics.top);
   const logicalColumnUnit = metrics.cellSize + metrics.gap;
+  const logicalHalfRowUnit = logicalColumnUnit / 2;
   const logicalCols = clamp(Math.round((rawWidth + metrics.gap) / logicalColumnUnit), 1, device === "desktop" ? 3 : 2);
-  const logicalRows = clamp(Math.round((rawHeight + metrics.gap) / logicalColumnUnit), 1, 2);
-  const size = getPresetFromDraft({ logicalCols, logicalRows, device });
+  const logicalHalfRows = clamp(Math.round((rawHeight + metrics.gap) / logicalHalfRowUnit), 1, 6);
+  const size = getPresetFromDraft({ logicalCols, logicalHalfRows, device });
 
   return {
     size,
@@ -3607,25 +3614,30 @@ function getPointerResizeDraft(event: PointerEvent, metrics: ResizeMetrics, devi
 
 function getPresetFromDraft({
   logicalCols,
-  logicalRows,
+  logicalHalfRows,
   device
 }: {
   logicalCols: number;
-  logicalRows: number;
+  logicalHalfRows: number;
   device: LayoutDevice;
 }): BlockSize {
   if (logicalCols <= 1) {
-    return logicalRows >= 2 ? "tall" : "small-square";
+    return logicalHalfRows >= 4 ? "tall" : "small-square";
   }
 
   if (device === "mobile") {
-    return logicalRows >= 2 ? "large-square" : "wide";
+    if (logicalHalfRows <= 1) return "wide-short";
+    if (logicalHalfRows >= 6) return "full-square";
+    return logicalHalfRows >= 4 ? "large-square" : "wide";
   }
 
   if (logicalCols === 2) {
-    return logicalRows >= 2 ? "large-square" : "wide";
+    if (logicalHalfRows <= 1) return "wide-short";
+    return logicalHalfRows >= 4 ? "large-square" : "wide";
   }
 
+  if (logicalHalfRows >= 6) return "full-square";
+  if (logicalHalfRows >= 4) return "full-tall";
   return "full-wide";
 }
 

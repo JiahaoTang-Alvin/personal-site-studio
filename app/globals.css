@@ -65,8 +65,10 @@ select {
   --block-grid-columns: 12;
   --block-grid-cell-span: 6;
   grid-auto-rows: calc(
-    ((100cqw - (var(--block-grid-gap) * (var(--block-grid-columns) - 1))) / var(--block-grid-columns) * var(--block-grid-cell-span)) +
-      (var(--block-grid-gap) * (var(--block-grid-cell-span) - 1))
+    (
+        ((100cqw - (var(--block-grid-gap) * (var(--block-grid-columns) - 1))) / var(--block-grid-columns) * var(--block-grid-cell-span)) +
+          (var(--block-grid-gap) * (var(--block-grid-cell-span) - 1)) - var(--block-grid-gap)
+      ) / 2
   );
 }
 
@@ -98,8 +100,8 @@ select {
     (100cqw - (var(--admin-grid-gap) * (var(--admin-grid-columns) - 1))) / var(--admin-grid-columns)
   );
   --admin-grid-row-height: calc(
-    (var(--admin-grid-column-width) * var(--admin-grid-cell-span)) +
-      (var(--admin-grid-gap) * (var(--admin-grid-cell-span) - 1))
+    ((var(--admin-grid-column-width) * var(--admin-grid-cell-span)) + (var(--admin-grid-gap) * (var(--admin-grid-cell-span) - 1)) - var(--admin-grid-gap)) /
+      2
   );
   grid-template-columns: repeat(var(--admin-grid-columns), minmax(0, 1fr));
   grid-auto-flow: dense;
