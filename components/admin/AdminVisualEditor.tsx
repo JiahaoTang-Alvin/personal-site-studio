@@ -34,6 +34,7 @@ import {
   LinkIcon,
   Linkedin,
   Laptop,
+  LogOut,
   Mail,
   MapPin,
   Palette,
@@ -1125,12 +1126,24 @@ export function AdminVisualEditor({ initialConfig }: { initialConfig: SiteConfig
   return (
     <main className="min-h-screen bg-white text-[#101010]">
       <header className="sticky top-0 z-40 border-b border-[#EAF0F8] bg-white">
-        <div className="mx-auto flex max-w-[1180px] items-center justify-between gap-3 px-5 py-3">
-          <div>
-            <p className="text-sm font-semibold">{baseConfig.settings.projectName}</p>
-            <p className="text-xs text-[#6B7280]">{isDirty ? "有未保存修改" : "已保存"} · 所见即所得编辑</p>
+        <div className="mx-auto grid max-w-[1180px] gap-2 px-5 py-3">
+          <div className="flex items-center justify-between gap-3">
+            <div>
+              <p className="text-sm font-semibold">{baseConfig.settings.projectName}</p>
+              <p className="text-xs text-[#6B7280]">{isDirty ? "有未保存修改" : "已保存"}</p>
+            </div>
+            <div className="flex items-center justify-end gap-2">
+              <Button variant="secondary" size="sm" onClick={() => setModal({ type: "project-settings" })}>
+                <Settings className="h-4 w-4" />
+                项目设置
+              </Button>
+              <Button size="sm" onClick={save} disabled={isSaving || !validation.success}>
+                <Save className="h-4 w-4" />
+                {isSaving ? "保存中" : "保存"}
+              </Button>
+            </div>
           </div>
-          <div className="flex flex-wrap items-center justify-end gap-2">
+          <div className="flex flex-wrap items-center gap-2">
             {shouldShowVariantPicker ? (
               <>
                 <Button
@@ -1170,14 +1183,6 @@ export function AdminVisualEditor({ initialConfig }: { initialConfig: SiteConfig
                 ))}
               </Select>
             ) : null}
-            <Button variant="secondary" size="sm" onClick={() => setModal({ type: "project-settings" })}>
-              <Settings className="h-4 w-4" />
-              项目设置
-            </Button>
-            <Button size="sm" onClick={save} disabled={isSaving || !validation.success}>
-              <Save className="h-4 w-4" />
-              {isSaving ? "保存中" : "保存"}
-            </Button>
           </div>
         </div>
       </header>
@@ -3523,7 +3528,7 @@ function FloatingToolbar({
   onAddBlock: () => void;
 }) {
   return (
-    <div className="fixed bottom-6 left-1/2 z-30 flex -translate-x-1/2 items-center gap-2 rounded-[24px] border border-[#EAF0F8] bg-white/95 p-2 shadow-[0_18px_60px_rgba(15,23,42,0.18)] backdrop-blur">
+    <div className="fixed bottom-6 left-1/2 z-30 flex -translate-x-1/2 items-center gap-2 rounded-[24px] border border-[#EAF0F8] bg-white p-2 shadow-[0_14px_44px_rgba(15,23,42,0.14)]">
       <div className="flex rounded-[18px] bg-[#F1F5F9] p-1">
         <button
           type="button"
@@ -3551,7 +3556,7 @@ function FloatingToolbar({
           <Smartphone className="h-4 w-4" />
         </button>
       </div>
-      <Button onClick={onAddBlock}>
+      <Button onClick={onAddBlock} className="h-10 whitespace-nowrap px-3">
         <Plus className="h-4 w-4" />
         添加 Block
       </Button>
@@ -3926,6 +3931,15 @@ function ProjectSettingsForm({
     onChange({ ...config, settings: { ...settings, ...patch } });
   }
 
+  async function logoutAdmin() {
+    const response = await fetch("/api/admin/logout", { method: "POST" });
+    if (!response.ok) {
+      toast.error("退出登录失败");
+      return;
+    }
+    window.location.href = "/admin/login";
+  }
+
   function updateVariant(id: string, patch: Partial<SiteConfig["settings"]["variants"]["variants"][number]>) {
     const nextId = patch.id ?? id;
     onChange({
@@ -4239,10 +4253,16 @@ function ProjectSettingsForm({
 
       <div className="min-w-0">
         {activePanel === "basic" ? (
-          <section className="grid gap-3">
+          <section className="grid gap-4">
             <Field label="项目名称/project name">
               <Input value={settings.projectName} onChange={(event) => patchSettings({ projectName: event.target.value })} />
             </Field>
+            <div className="rounded-xl border border-red-100 bg-red-50/60 p-3">
+              <Button type="button" variant="ghost" size="sm" onClick={logoutAdmin} className="text-red-600 hover:bg-red-100 hover:text-red-700">
+                <LogOut className="h-4 w-4" />
+                退出登录管理端
+              </Button>
+            </div>
           </section>
         ) : null}
 
