@@ -80,7 +80,7 @@ export function BlockForm({
           <Input
             value={block.title}
             onChange={(event) => onPatch({ title: event.target.value })}
-            placeholder="例如：Featured Project / Internship Resume"
+            placeholder={editorLanguage === "zh-CN" ? "例如：作品集项目" : "Example: Featured Project"}
           />
         </Field>
         <Field label={copy.blockSubtitle}>
@@ -147,7 +147,7 @@ export function BlockForm({
             <Input
               value={block.badge ?? ""}
               onChange={(event) => onPatch({ badge: event.target.value })}
-              placeholder="例如：Featured / Award / 2026"
+              placeholder={editorLanguage === "zh-CN" ? "例如：精选" : "Example: Featured"}
             />
           </Field>
           {block.actionType === "copy" ? (

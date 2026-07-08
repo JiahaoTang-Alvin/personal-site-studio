@@ -560,7 +560,12 @@ export function AdminVisualEditor({ initialConfig }: { initialConfig: SiteConfig
     const targetLanguage = getVariantLanguages(baseConfig, draft.targetVariantId).find((language) => language.code === draft.targetLocale);
     const sourceVariant = baseConfig.settings.variants.variants.find((variant) => variant.id === draft.sourceVariantId);
     const sourceLanguage = getVariantLanguages(baseConfig, draft.sourceVariantId).find((language) => language.code === draft.sourceLocale);
-    const message = `确认用「${sourceVariant?.name || draft.sourceVariantId} / ${sourceLanguage?.label || draft.sourceLocale}」覆盖当前「${targetVariant?.name || draft.targetVariantId} / ${targetLanguage?.label || draft.targetLocale}」？当前内容会被直接替换。`;
+    const sourceLabel = `${sourceVariant?.name || draft.sourceVariantId} - ${sourceLanguage?.label || draft.sourceLocale}`;
+    const targetLabel = `${targetVariant?.name || draft.targetVariantId} - ${targetLanguage?.label || draft.targetLocale}`;
+    const message =
+      editorLanguage === "zh-CN"
+        ? `确认用「${sourceLabel}」覆盖当前「${targetLabel}」？当前内容会被直接替换。`
+        : `Override "${targetLabel}" with "${sourceLabel}"? The current content will be replaced.`;
     if (!window.confirm(message)) return;
     const sourceConfig = materializeSiteConfig(baseConfig, draft.sourceVariantId, draft.sourceLocale);
     updateBaseConfig(writeSiteContentSnapshot(baseConfig, draft.targetVariantId, draft.targetLocale, sourceConfig));
@@ -605,13 +610,13 @@ export function AdminVisualEditor({ initialConfig }: { initialConfig: SiteConfig
     const result = validateSiteConfig(parsed);
 
     if (!result.success) {
-      toast.error("导入失败", { description: result.error });
+      toast.error(copy.importFailed, { description: result.error });
       return;
     }
 
     const importedConfig = normalizeContentFlowConfig(result.data);
     updateBaseConfig(writeSiteContentSnapshot(baseConfig, resolvedActiveVariantId, resolvedActiveLocale, importedConfig));
-    toast.success("配置已导入当前作用域", { description: "检查无误后点击保存才会覆盖线上配置。" });
+    toast.success(copy.importSuccess, { description: copy.importSuccessDescription });
   }
 
   function patchProfile(patch: Partial<Profile>) {
@@ -1602,6 +1607,7 @@ export function AdminVisualEditor({ initialConfig }: { initialConfig: SiteConfig
           draft={overrideDraft}
           variants={[...baseConfig.settings.variants.variants].sort(bySortOrder)}
           getLanguages={getTopBarVariantLanguages}
+          editorLanguage={editorLanguage}
           onChange={setOverrideDraft}
           onClose={() => setOverrideDraft(null)}
           onApply={() => applyTopBarVariantOverride(overrideDraft)}
@@ -4135,13 +4141,8 @@ function ProjectSettingsForm({
   function addVariant() {
     const nextSortOrder = Math.max(0, ...settings.variants.variants.map((variant) => variant.sortOrder)) + 1;
     const id = `v${nextSortOrder}`;
-    const mainLocale = getVariantMainLanguageCode(settings.variants.mainVariantId);
-    const mainLanguage = getVariantLanguageList(settings.variants.mainVariantId).find((language) => language.code === mainLocale) ?? {
-      code: mainLocale,
-      label: mainLocale,
-      isEnabled: true,
-      sortOrder: 1
-    };
+    const mainLanguage = getDefaultVersionLanguageForEditor();
+    const mainLocale = mainLanguage.code;
     patchSettings({
       variants: {
         ...settings.variants,
@@ -4150,7 +4151,7 @@ function ProjectSettingsForm({
           ...settings.variants.variants,
           {
             id,
-            name: "New version",
+            name: copy.newVersion,
             accessCode: id,
             isEnabled: true,
             allowSeoIndex: false,
@@ -4162,6 +4163,26 @@ function ProjectSettingsForm({
         ]
       }
     });
+  }
+
+  function getDefaultVersionLanguageForEditor() {
+    const preferredLocale = editorLanguage === "en" ? "en" : "zh-CN";
+    const fallbackLocale = getVariantMainLanguageCode(settings.variants.mainVariantId);
+    const mainVariantLanguages = getVariantLanguageList(settings.variants.mainVariantId);
+    const preferredLanguage =
+      mainVariantLanguages.find((language) => language.code === preferredLocale) ??
+      mainVariantLanguages.find((language) => language.code.toLowerCase().startsWith(`${preferredLocale.split("-")[0].toLowerCase()}-`));
+    const languageOption = languageOptions.find((language) => language.code === preferredLocale);
+    const fallbackLanguage = mainVariantLanguages.find((language) => language.code === fallbackLocale);
+
+    return {
+      ...(preferredLanguage ??
+        (languageOption
+          ? { code: languageOption.code, label: languageOption.defaultNote, isEnabled: true, sortOrder: 1 }
+          : fallbackLanguage ?? { code: fallbackLocale, label: fallbackLocale, isEnabled: true, sortOrder: 1 })),
+      isEnabled: true,
+      sortOrder: 1
+    };
   }
 
   function removeVariant(id: string) {
@@ -4220,7 +4241,11 @@ function ProjectSettingsForm({
   function openAddVariantLanguage(variantId: string) {
     const variantLanguages = getVariantLanguageList(variantId);
     const existingCodes = new Set(variantLanguages.map((language) => language.code));
-    const option = languageOptions.find((language) => !existingCodes.has(language.code)) ?? languageOptions[0];
+    const preferredCode = editorLanguage === "en" ? "en" : "zh-CN";
+    const option =
+      languageOptions.find((language) => language.code === preferredCode && !existingCodes.has(language.code)) ??
+      languageOptions.find((language) => !existingCodes.has(language.code)) ??
+      languageOptions[0];
     setLanguageDraft({ variantId, code: option.code, label: option.defaultNote });
   }
 
@@ -4291,8 +4316,8 @@ function ProjectSettingsForm({
   function removeVariantLanguage(variantId: string, locale: string) {
     if (locale === getVariantMainLanguageCode(variantId)) return;
     const language = getVariantLanguageList(variantId).find((item) => item.code === locale);
-    const confirmation = window.prompt(`删除「${language?.label || locale}」会连同对应编辑内容一起删除。请输入“删除”确认。`);
-    if (confirmation !== "删除") return;
+    const confirmation = window.prompt(copy.removeLanguagePrompt.replace("{language}", language?.label || locale));
+    if (confirmation !== copy.deleteLanguageConfirmText) return;
     const nextContentVariants = { ...(config.contentVariants ?? {}) };
     delete nextContentVariants[getContentVariantKey(variantId, locale)];
     onChange({
@@ -4319,7 +4344,11 @@ function ProjectSettingsForm({
 
   function setVariantMainLanguage(variantId: string, locale: string) {
     const language = getVariantLanguageList(variantId).find((item) => item.code === locale);
-    if (!window.confirm(`把「${language?.label || locale}」设为这个版本的主语言？`)) return;
+    const message =
+      editorLanguage === "zh-CN"
+        ? `把「${language?.label || locale}」设为这个版本的主语言？`
+        : `Set "${language?.label || locale}" as the main language for this version?`;
+    if (!window.confirm(message)) return;
     applyVariantMainLanguage(variantId, locale);
   }
 
@@ -4389,12 +4418,12 @@ function ProjectSettingsForm({
   function getVariantAccessCodeError(variantId: string, accessCode: string) {
     const normalized = accessCode.trim().toLowerCase();
     if (!normalized) return "";
-    if (!/^[a-z0-9-]+$/.test(normalized)) return "只能使用小写字母、数字和短横线。";
-    if (reservedVariantAccessCodes.has(normalized)) return `“/${normalized}” 是系统路径，不能作为访问后缀。`;
+    if (!/^[a-z0-9-]+$/.test(normalized)) return copy.deleteAccessCodeInvalid;
+    if (reservedVariantAccessCodes.has(normalized)) return copy.reservedAccessCode.replace("{path}", normalized);
     const isDuplicate = settings.variants.variants.some(
       (variant) => variant.id !== variantId && variant.accessCode.trim().toLowerCase() === normalized
     );
-    return isDuplicate ? "这个访问后缀已经被其他版本使用。" : "";
+    return isDuplicate ? copy.duplicateAccessCode : "";
   }
 
   const panels: { id: ProjectSettingsPanel; label: string; description: string }[] = [
@@ -4456,22 +4485,22 @@ function ProjectSettingsForm({
 
         {activePanel === "web" ? (
           <section className="grid gap-3">
-            <ScopeBadges variantName={activeVariant?.name || activeVariantId} languageName={activeLanguage?.label || activeLocale} />
+            <ScopeBadges variantName={activeVariant?.name || activeVariantId} languageName={activeLanguage?.label || activeLocale} editorLanguage={editorLanguage} />
             <div className="grid gap-3 md:grid-cols-2">
-              <Field label="网页标题/site title">
+              <Field label={copy.siteTitle}>
                 <Input
                   value={contentSettings.seoTitle || contentSettings.siteTitle}
                   onChange={(event) => patchContentSettings({ siteTitle: event.target.value, seoTitle: event.target.value })}
                 />
               </Field>
-              <Field label="公开站点 URL/public URL">
+              <Field label={copy.publicSiteUrl}>
                 <Input
                   value={settings.siteUrl}
                   placeholder="https://example.com"
                   onChange={(event) => patchSettings({ siteUrl: event.target.value })}
                 />
               </Field>
-              <Field label="网页描述/site description" className="md:col-span-2">
+              <Field label={copy.siteDescription} className="md:col-span-2">
                 <Textarea
                   value={contentSettings.seoDescription || contentSettings.siteDescription}
                   onChange={(event) => patchContentSettings({ siteDescription: event.target.value, seoDescription: event.target.value })}
@@ -4484,7 +4513,7 @@ function ProjectSettingsForm({
 
         {activePanel === "seo" ? (
           <section className="grid gap-3">
-            <ScopeBadges variantName={activeVariant?.name || activeVariantId} languageName={activeLanguage?.label || activeLocale} />
+            <ScopeBadges variantName={activeVariant?.name || activeVariantId} languageName={activeLanguage?.label || activeLocale} editorLanguage={editorLanguage} />
             <div className="grid gap-3 md:grid-cols-2">
               <Field label="Canonical URL">
                 <Input
@@ -4493,7 +4522,7 @@ function ProjectSettingsForm({
                   onChange={(event) => patchContentSettings({ seoCanonicalUrl: event.target.value })}
                 />
               </Field>
-              <Field label="OG 图片 URL/open graph image">
+              <Field label={copy.openGraphImage}>
                 <Input value={contentSettings.seoOgImage ?? ""} onChange={(event) => patchContentSettings({ seoOgImage: event.target.value })} />
               </Field>
             </div>
@@ -4504,17 +4533,17 @@ function ProjectSettingsForm({
           <section className="grid gap-4">
             <div className="flex items-center justify-between gap-3">
               <div>
-                <p className="mt-1 text-sm text-[#64748B]">先配置版本，再在每个版本下面添加需要编辑和展示的语言。</p>
+                <p className="mt-1 text-sm text-[#64748B]">{copy.variantsHelp}</p>
               </div>
               <Button type="button" variant="secondary" size="sm" onClick={addVariant}>
                 <Plus className="h-4 w-4" />
-                添加版本
+                {copy.addVersion}
               </Button>
             </div>
 
             <div className="grid gap-3 rounded-xl border border-[#EAEAEA] bg-[#FAFAFA] p-3">
               <div className="grid gap-3 md:grid-cols-2">
-                <Field label="主版本/main version">
+                <Field label={copy.mainVersion}>
                   <Select
                     value={settings.variants.mainVariantId}
                     onChange={(event) => patchSettings({ variants: { ...settings.variants, mainVariantId: event.target.value } })}
@@ -4526,7 +4555,7 @@ function ProjectSettingsForm({
                     ))}
                   </Select>
                 </Field>
-                <Field label="主语言/main language">
+                <Field label={copy.mainLanguage}>
                   <Select
                     value={getVariantMainLanguageCode(settings.variants.mainVariantId)}
                     onChange={(event) => applyVariantMainLanguage(settings.variants.mainVariantId, event.target.value)}
@@ -4555,15 +4584,15 @@ function ProjectSettingsForm({
                         type="button"
                         onClick={() => toggleVariantCollapsed(variant.id)}
                         className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-[#F8FAFC] text-[#64748B] transition hover:bg-[#EFF6FF] hover:text-[#1E3A5F]"
-                        aria-label={isCollapsed ? "展开版本" : "折叠版本"}
+                        aria-label={isCollapsed ? copy.variantExpand : copy.variantCollapse}
                       >
                         <ChevronDown className={cn("h-4 w-4 transition-transform duration-200", !isCollapsed && "rotate-180")} />
                       </button>
                       <div className="grid min-w-0 flex-1 gap-0.5">
-                        <p className="truncate text-sm font-semibold text-[#111]">{variant.name || "New version"}</p>
+                        <p className="truncate text-sm font-semibold text-[#111]">{variant.name || copy.newVersion}</p>
                         <p className="truncate text-xs text-[#64748B]">
-                          访问后缀：{variant.accessCode.trim() ? `/${variant.accessCode.trim()}` : "主版本留空"} · SEO：
-                          {allowSeoIndex ? "允许收录" : "不收录"}
+                          {copy.variantSummaryAccessCode}: {variant.accessCode.trim() ? `/${variant.accessCode.trim()}` : copy.variantAccessCodeEmpty} · SEO:{" "}
+                          {allowSeoIndex ? copy.seoAllowed : copy.noSeoIndex}
                         </p>
                       </div>
                       <Button
@@ -4574,7 +4603,7 @@ function ProjectSettingsForm({
                         disabled={settings.variants.variants.length <= 1}
                         className="ml-auto text-red-600 hover:bg-red-50 hover:text-red-700 disabled:text-[#CBD5E1] disabled:hover:bg-transparent"
                       >
-                        删除
+                        {copy.delete}
                       </Button>
                     </div>
                     <div className={cn("grid transition-[grid-template-rows] duration-200 ease-out", isCollapsed ? "grid-rows-[0fr]" : "grid-rows-[1fr]")}>
@@ -4585,7 +4614,7 @@ function ProjectSettingsForm({
                               <Field
                                 label={
                                   <>
-                                    名称 <span className="text-xs font-normal text-[#94A3B8]">（仅在编辑器显示）</span>
+                                    {copy.variantName} <span className="text-xs font-normal text-[#94A3B8]">{copy.variantNameHelp}</span>
                                   </>
                                 }
                               >
@@ -4593,10 +4622,10 @@ function ProjectSettingsForm({
                               </Field>
                             </div>
                             <div className="grid gap-1.5">
-                              <Field label="访问后缀">
+                              <Field label={copy.variantAccessCode}>
                                 <Input
                                   value={variant.accessCode}
-                                  placeholder={variant.id === settings.variants.mainVariantId ? "主版本留空" : variant.id}
+                                  placeholder={variant.id === settings.variants.mainVariantId ? copy.variantAccessCodeEmpty : variant.id}
                                   onChange={(event) => updateVariant(variant.id, { accessCode: event.target.value })}
                                   className={cn(accessCodeError && "border-red-300 bg-red-50/60 text-red-700 focus:border-red-400 focus:ring-red-100")}
                                 />
@@ -4609,11 +4638,11 @@ function ProjectSettingsForm({
                               checked={allowSeoIndex}
                               onChange={(event) => updateVariant(variant.id, { allowSeoIndex: event.target.checked })}
                             />
-                            允许搜索引擎收录这个版本
+                            {copy.allowSeoIndex}
                           </label>
                           <div className="grid gap-2">
                             <div className="flex items-center justify-between gap-3">
-                              <p className="text-xs font-semibold text-[#64748B]">这个版本的语言</p>
+                              <p className="text-xs font-semibold text-[#64748B]">{copy.variantLanguageList}</p>
                               <Button type="button" variant="secondary" size="sm" onClick={() => openAddVariantLanguage(variant.id)} className="h-8 px-2">
                                 <Plus className="h-4 w-4" />
                               </Button>
@@ -4646,13 +4675,13 @@ function ProjectSettingsForm({
                                       <span className="select-none rounded-full bg-white/80 px-2 py-0.5 text-[11px] font-semibold text-[#64748B]">
                                         {language.code}
                                       </span>
-                                      {isMainLocale ? <span className="rounded-full bg-white px-2 py-0.5 text-[11px] text-[#1E3A5F]">主语言</span> : null}
+                                      {isMainLocale ? <span className="rounded-full bg-white px-2 py-0.5 text-[11px] text-[#1E3A5F]">{copy.mainLanguage}</span> : null}
                                       {!isMainLocale ? (
                                         <button
                                           type="button"
                                           onClick={() => setVariantMainLanguage(variant.id, language.code)}
                                           className="text-[#5B7896] hover:text-[#1E3A5F]"
-                                          aria-label={`设为主语言 ${language.label}`}
+                                          aria-label={copy.setMainLanguage.replace("{language}", language.label)}
                                         >
                                           <Pin className="h-3 w-3" />
                                         </button>
@@ -4662,7 +4691,7 @@ function ProjectSettingsForm({
                                           type="button"
                                           onClick={() => removeVariantLanguage(variant.id, language.code)}
                                           className="text-red-500 hover:text-red-700"
-                                          aria-label={`删除 ${language.label}`}
+                                          aria-label={`${copy.delete} ${language.label}`}
                                         >
                                           <Trash2 className="h-3 w-3" />
                                         </button>
@@ -4685,22 +4714,22 @@ function ProjectSettingsForm({
         {activePanel === "appearance" ? (
           <section className="grid gap-3">
             <div className="grid gap-3 md:grid-cols-2">
-              <Field label="主色">
+              <Field label={copy.primaryColor}>
                 <Input type="color" value={theme.primaryColor} onChange={(event) => patchTheme({ primaryColor: event.target.value })} />
               </Field>
-              <Field label="背景">
+              <Field label={copy.background}>
                 <Input type="color" value={theme.backgroundColor} onChange={(event) => patchTheme({ backgroundColor: event.target.value })} />
               </Field>
-              <Field label="卡片背景">
+              <Field label={editorLanguage === "zh-CN" ? "卡片背景" : "Card Background"}>
                 <Input type="color" value={theme.cardBackground} onChange={(event) => patchTheme({ cardBackground: event.target.value })} />
               </Field>
-              <Field label="文字">
+              <Field label={editorLanguage === "zh-CN" ? "文字" : "Text"}>
                 <Input type="color" value={theme.textColor} onChange={(event) => patchTheme({ textColor: event.target.value })} />
               </Field>
-              <Field label="边框">
+              <Field label={copy.border}>
                 <Input type="color" value={theme.borderColor} onChange={(event) => patchTheme({ borderColor: event.target.value })} />
               </Field>
-              <Field label="字体">
+              <Field label={copy.font}>
                 <Select value={theme.fontFamily} onChange={(event) => patchTheme({ fontFamily: event.target.value as SiteConfig["theme"]["fontFamily"] })}>
                   <option value="system">system</option>
                   <option value="rounded">rounded</option>
@@ -4711,15 +4740,15 @@ function ProjectSettingsForm({
             <div className="flex flex-wrap gap-4 text-sm text-[#475569]">
               <label className="flex items-center gap-2">
                 <Checkbox checked={settings.enableAnimation} onChange={(event) => patchSettings({ enableAnimation: event.target.checked })} />
-                动画/animation
+                {editorLanguage === "zh-CN" ? "动画" : "Animation"}
               </label>
               <label className="flex items-center gap-2">
                 <Checkbox checked={settings.enableImagePreview} onChange={(event) => patchSettings({ enableImagePreview: event.target.checked })} />
-                图片预览/image preview
+                {copy.imagePreviewEnabled}
               </label>
               <label className="flex items-center gap-2">
                 <Checkbox checked={settings.enablePublicShare} onChange={(event) => patchSettings({ enablePublicShare: event.target.checked })} />
-                公开分享/public share
+                {copy.publicShare}
               </label>
             </div>
           </section>
@@ -4727,20 +4756,20 @@ function ProjectSettingsForm({
 
         {activePanel === "config" ? (
           <section className="grid gap-3 rounded-xl border border-[#EAEAEA] bg-[#FAFAFA] p-4">
-            <ScopeBadges variantName={activeVariant?.name || activeVariantId} languageName={activeLanguage?.label || activeLocale} />
+            <ScopeBadges variantName={activeVariant?.name || activeVariantId} languageName={activeLanguage?.label || activeLocale} editorLanguage={editorLanguage} />
             <div>
               <p className="mt-1 text-sm text-[#64748B]">
-                导出只包含当前作用域内容；导入也只覆盖当前作用域。确认后还需要点击保存才会发布。
+                {copy.configPanelHelp}
               </p>
             </div>
             <div className="flex flex-wrap gap-2">
               <Button type="button" variant="secondary" size="sm" onClick={onExport}>
                 <Download className="h-4 w-4" />
-                导出当前作用域
+                {copy.exportCurrentScope}
               </Button>
               <Button type="button" variant="secondary" size="sm" onClick={() => fileInputRef.current?.click()}>
                 <Upload className="h-4 w-4" />
-                导入覆盖当前作用域
+                {copy.importCurrentScope}
               </Button>
               <input
                 ref={fileInputRef}
@@ -4754,7 +4783,7 @@ function ProjectSettingsForm({
                   try {
                     await onImport(file);
                   } catch {
-                    toast.error("导入失败", { description: "请选择有效的 JSON 配置文件。" });
+                    toast.error(copy.importFailed, { description: copy.importFailedDescription });
                   }
                 }}
               />
@@ -4766,6 +4795,7 @@ function ProjectSettingsForm({
         <AddLanguageDialog
           draft={languageDraft}
           existingCodes={getVariantLanguageList(languageDraft.variantId).map((language) => language.code)}
+          editorLanguage={editorLanguage}
           onChange={setLanguageDraft}
           onClose={() => setLanguageDraft(null)}
           onAdd={() => addVariantLanguage(languageDraft.variantId, languageDraft.code, languageDraft.label)}
@@ -4800,16 +4830,19 @@ function removeVariantContentKeys(contentVariants: SiteConfig["contentVariants"]
 function AddLanguageDialog({
   draft,
   existingCodes,
+  editorLanguage,
   onChange,
   onClose,
   onAdd
 }: {
   draft: { variantId: string; code: string; label: string };
   existingCodes: string[];
+  editorLanguage: EditorLanguage;
   onChange: (draft: { variantId: string; code: string; label: string }) => void;
   onClose: () => void;
   onAdd: () => void;
 }) {
+  const copy = editorCopy[editorLanguage];
   const existing = new Set(existingCodes);
   const selectedLanguage = languageOptions.find((language) => language.code === draft.code) ?? languageOptions[0];
   const isDuplicate = existing.has(draft.code);
@@ -4823,15 +4856,15 @@ function AddLanguageDialog({
       >
         <div className="flex items-center justify-between gap-3">
           <div>
-            <p className="text-sm font-bold">添加语言</p>
-            <p className="mt-1 text-xs text-[#64748B]">语言代码由选项决定，备注名只在管理端显示。</p>
+            <p className="text-sm font-bold">{copy.addLanguage}</p>
+            <p className="mt-1 text-xs text-[#64748B]">{copy.languageDialogHelp}</p>
           </div>
           <button type="button" onClick={onClose} className="grid h-8 w-8 place-items-center rounded-full text-[#64748B] hover:bg-[#F1F5F9]">
             <X className="h-4 w-4" />
           </button>
         </div>
 
-        <Field label="语言代码">
+        <Field label={copy.languageCode}>
           <Select
             value={draft.code}
             onChange={(event) => {
@@ -4847,7 +4880,7 @@ function AddLanguageDialog({
           </Select>
         </Field>
 
-        <Field label="备注名">
+        <Field label={copy.languageNote}>
           <Input
             value={draft.label}
             placeholder={selectedLanguage.defaultNote}
@@ -4856,14 +4889,14 @@ function AddLanguageDialog({
           />
         </Field>
 
-        {isDuplicate ? <p className="text-xs text-red-600">这个版本下面已经有 {draft.code} 了，请选择其他语言。</p> : null}
+        {isDuplicate ? <p className="text-xs text-red-600">{copy.languageAlreadyExists.replace("{code}", draft.code)}</p> : null}
 
         <div className="flex justify-end gap-2">
           <Button type="button" variant="ghost" onClick={onClose}>
-            取消
+            {copy.cancel}
           </Button>
           <Button type="button" onClick={onAdd} disabled={!canAdd}>
-            添加
+            {copy.add}
           </Button>
         </div>
       </div>
@@ -4875,6 +4908,7 @@ function VariantOverrideDialog({
   draft,
   variants,
   getLanguages,
+  editorLanguage,
   onChange,
   onClose,
   onApply
@@ -4882,10 +4916,12 @@ function VariantOverrideDialog({
   draft: { targetVariantId: string; targetLocale: string; sourceVariantId: string; sourceLocale: string };
   variants: SiteConfig["settings"]["variants"]["variants"];
   getLanguages: (variantId: string) => SiteLanguage[];
+  editorLanguage: EditorLanguage;
   onChange: (draft: { targetVariantId: string; targetLocale: string; sourceVariantId: string; sourceLocale: string }) => void;
   onClose: () => void;
   onApply: () => void;
 }) {
+  const copy = editorCopy[editorLanguage];
   const targetVariant = variants.find((variant) => variant.id === draft.targetVariantId);
   const targetLanguage = getLanguages(draft.targetVariantId).find((language) => language.code === draft.targetLocale);
   const sourceLanguages = getLanguages(draft.sourceVariantId);
@@ -4901,8 +4937,8 @@ function VariantOverrideDialog({
       >
         <div className="flex items-center justify-between gap-3">
           <div>
-            <p className="text-sm font-bold">版本覆盖</p>
-            <p className="mt-1 text-xs text-[#64748B]">选择一个来源版本和语言，覆盖到当前目标。</p>
+            <p className="text-sm font-bold">{copy.variantOverride}</p>
+            <p className="mt-1 text-xs text-[#64748B]">{copy.variantOverrideHelp}</p>
           </div>
           <button type="button" onClick={onClose} className="grid h-8 w-8 place-items-center rounded-full text-[#64748B] hover:bg-[#F1F5F9]">
             <X className="h-4 w-4" />
@@ -4910,7 +4946,7 @@ function VariantOverrideDialog({
         </div>
 
         <div className="rounded-xl border border-[#EAEAEA] bg-[#FAFAFA] px-3 py-2 text-xs text-[#64748B]">
-          覆盖目标：
+          {copy.variantOverrideTarget}
           <span className="ml-2 rounded-full border border-[#BFDBFE] bg-[#EFF6FF] px-2 py-0.5 font-semibold text-[#1E3A5F]">
             {targetVariant?.name || draft.targetVariantId}
           </span>
@@ -4920,7 +4956,7 @@ function VariantOverrideDialog({
         </div>
 
         <div className="grid gap-3 md:grid-cols-2">
-          <Field label="来源版本">
+          <Field label={copy.variantSourceVersion}>
             <Select
               value={draft.sourceVariantId}
               onChange={(event) => {
@@ -4940,7 +4976,7 @@ function VariantOverrideDialog({
               ))}
             </Select>
           </Field>
-          <Field label="来源语言">
+          <Field label={copy.variantSourceLanguage}>
             <Select value={sourceLocale} onChange={(event) => onChange({ ...draft, sourceLocale: event.target.value })}>
               {sourceLanguages.map((language) => (
                 <option key={language.code} value={language.code}>
@@ -4952,15 +4988,15 @@ function VariantOverrideDialog({
         </div>
 
         <p className="rounded-xl border border-red-100 bg-red-50 px-3 py-2 text-xs text-red-700">
-          覆盖会直接替换目标版本语言的个人信息、模块、外观、网页标题、网页描述和 SEO 设置。
+          {copy.variantOverrideWarning}
         </p>
 
         <div className="flex justify-end gap-2">
           <Button type="button" variant="ghost" onClick={onClose}>
-            取消
+            {copy.cancel}
           </Button>
           <Button type="button" onClick={onApply} className="bg-red-600 hover:bg-red-700">
-            确认覆盖
+            {copy.confirmOverwrite}
           </Button>
         </div>
       </div>
@@ -4968,10 +5004,11 @@ function VariantOverrideDialog({
   );
 }
 
-function ScopeBadges({ variantName, languageName }: { variantName: string; languageName: string }) {
+function ScopeBadges({ variantName, languageName, editorLanguage }: { variantName: string; languageName: string; editorLanguage: EditorLanguage }) {
+  const copy = editorCopy[editorLanguage];
   return (
     <div className="flex flex-wrap items-center gap-2 rounded-xl border border-[#EAEAEA] bg-[#FAFAFA] px-3 py-2 text-xs text-[#64748B]">
-      <span>当前设置作用域</span>
+      <span>{copy.currentScope}</span>
       <span className="rounded-full border border-[#BFDBFE] bg-[#EFF6FF] px-2.5 py-1 font-semibold text-[#1E3A5F]">{variantName}</span>
       <span className="rounded-full border border-[#D8E9FF] bg-white px-2.5 py-1 font-semibold text-[#1E3A5F]">{languageName}</span>
     </div>
