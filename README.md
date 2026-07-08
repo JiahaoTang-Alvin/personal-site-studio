@@ -79,18 +79,17 @@ GitHub 仓库：https://github.com/JiahaoTang-Alvin/personal-site-studio
 
 请按以下步骤执行：
 1. 使用上面的 GitHub 仓库链接，在 Vercel 创建并部署一个新项目。它是 Next.js App Router 应用，需要 Vercel 运行时，不要改成 GitHub Pages 静态导出。
-2. 如果 Vercel 或 GitHub 需要授权、复制仓库、导入模板或创建项目，请按实际页面流程引导我完成。
-3. 在 Vercel 项目的 Environment Variables 里设置：
+2. 如果 Vercel 或 GitHub 需要授权、复制仓库、导入模板或创建项目，请引导我完成必要授权。
+3. 为 Vercel 项目设置环境变量：
    NEXT_PUBLIC_SITE_URL=https://我的域名或 Vercel 域名
    ADMIN_PASSWORD=我上面提供的后台登录密码
-4. 先部署一次项目。
-5. 在 Vercel 项目里创建并连接 Vercel Blob。Blob Store 选择 Public access。
-6. 进入 Blob Store 的 Projects 页面，找到这个项目连接，打开右侧三个点，选择 Update Project Connection，勾选 Add read-write token env var to this connection，然后 Save Changes。
-7. 回到项目 Deployments，选择最新部署右侧三个点，点击 Redeploy，让新的 Blob 环境变量生效。
-8. 部署完成后，打开 /admin/login，用我设置的后台密码登录。
-9. 登录后打开「项目设置」，填写站点标题、描述、站点 URL、SEO、版本和语言，然后保存一次，把生产配置写入 Vercel Blob。
+4. 创建一个 Vercel Blob Store，并连接到这个 Vercel 项目。Blob Store 使用 Public access，因为主页配置和上传图片需要被公开页面读取。
+5. 确保项目环境变量里存在 Blob read-write token，也就是 BLOB_READ_WRITE_TOKEN。不要只创建 BLOB_STORE_ID 或 BLOB_WEBHOOK_PUBLIC_KEY；保存配置和上传图片需要 read-write token。
+6. 部署或重新部署 Production，让新的环境变量生效。
+7. 部署完成后，打开 /admin/login，用我设置的后台密码登录。
+8. 登录后打开「项目设置」，填写站点标题、描述、站点 URL、SEO、版本和语言，然后保存一次，把生产配置写入 Vercel Blob。
 
-请在执行前告诉我哪些步骤需要我手动授权，例如 GitHub、Vercel 登录、创建 Blob 或重新部署。
+请在执行前告诉我哪些步骤需要我手动授权，例如 GitHub、Vercel 登录、创建 Blob 或生产部署。
 ```
 
 这条路径适合不想手动处理 GitHub、Vercel 和环境变量细节的用户。你仍然需要自己保管后台密码；不要把它写进公开仓库、README 或公开聊天记录。以后想换密码，去 Vercel 后台更新 `ADMIN_PASSWORD`，然后重新部署生产环境即可。
