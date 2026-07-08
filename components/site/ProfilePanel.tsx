@@ -13,12 +13,12 @@ type ProfilePanelProps = {
 
 export function ProfilePanel({ profile, languageSwitcher }: ProfilePanelProps) {
   return (
-    <aside className="relative lg:sticky lg:top-10 lg:self-start">
+    <aside className="relative lg:sticky lg:top-10 lg:min-h-[calc(100vh-5rem)] lg:self-start">
       {languageSwitcher ? (
         <PublicLanguageSwitcher
           currentLocale={languageSwitcher.currentLocale}
           languages={languageSwitcher.languages}
-          className="absolute right-2 top-2 z-10 lg:hidden"
+          className="absolute right-2 top-2 lg:hidden"
         />
       ) : null}
       <div className="grid gap-5 p-1">
@@ -27,14 +27,14 @@ export function ProfilePanel({ profile, languageSwitcher }: ProfilePanelProps) {
             <ProfileModuleRenderer key={module} module={module} profile={profile} />
           ) : null
         )}
-        {languageSwitcher ? (
-          <PublicLanguageSwitcher
-            currentLocale={languageSwitcher.currentLocale}
-            languages={languageSwitcher.languages}
-            className="mt-2 hidden lg:block"
-          />
-        ) : null}
       </div>
+      {languageSwitcher ? (
+        <PublicLanguageSwitcher
+          currentLocale={languageSwitcher.currentLocale}
+          languages={languageSwitcher.languages}
+          className="absolute bottom-0 left-1 hidden lg:block"
+        />
+      ) : null}
     </aside>
   );
 }
