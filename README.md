@@ -259,7 +259,7 @@ GitHub 适合用来托管源码，Vercel 适合用来运行应用。
 请帮我把这个开源项目直接部署到我的 Vercel，并完成部署后的可用性检查。
 
 项目仓库：
-https://github.com/JiahaoTang-Alvin/personal-site-studio
+https://github.com/JiahaoTang-Alvin/bio-blocks-studio
 
 我的后台登录密码：[请把这里改成你想要的后台登录密码]
 
@@ -274,7 +274,7 @@ https://github.com/JiahaoTang-Alvin/personal-site-studio
 1. 在 Vercel 中直接导入公开仓库
    - 打开 Vercel 的 Add New Project / Import Project。
    - 直接使用这个公开仓库链接导入：
-     https://github.com/JiahaoTang-Alvin/personal-site-studio
+     https://github.com/JiahaoTang-Alvin/bio-blocks-studio
    - 如果 Vercel 支持通过 Git URL 导入，请直接使用 Git URL。
    - 如果 Vercel 需要我登录、授权 GitHub、授权 Vercel 或确认导入，请明确告诉我需要手动点击哪里。
 2. 使用默认项目配置
@@ -381,7 +381,7 @@ Add New... -> Project
 在导入框中输入：
 
 ```text
-https://github.com/JiahaoTang-Alvin/personal-site-studio
+https://github.com/JiahaoTang-Alvin/bio-blocks-studio
 ```
 
 <img width="720" alt="Import GitHub repository" src="https://github.com/user-attachments/assets/bbdabceb-1b23-46c0-8609-033ed04c7d04" />
