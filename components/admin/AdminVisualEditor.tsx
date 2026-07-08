@@ -101,6 +101,14 @@ import { Button } from "@/components/ui/button";
 import { Checkbox, Field, Input, Select, Textarea } from "@/components/ui/field";
 import { MediaUploader } from "@/components/admin/MediaUploader";
 import { ImageCropUploader } from "@/components/admin/ImageCropUploader";
+import {
+  editorCopy,
+  editorLanguageOptions,
+  editorLanguageStorageKey,
+  isEditorLanguage,
+  resolveInitialEditorLanguage,
+  type EditorLanguage
+} from "@/components/admin/editor-i18n";
 
 type ModalState =
   | { type: "tags" }
@@ -192,6 +200,35 @@ const blockTemplates: {
   }
 ];
 
+const localizedTemplateText: Record<
+  string,
+  { group?: Partial<Record<EditorLanguage, string>>; label?: Partial<Record<EditorLanguage, string>>; description?: Partial<Record<EditorLanguage, string>> }
+> = {
+  常用: { group: { "zh-CN": "常用", en: "Common" } },
+  经历: { group: { "zh-CN": "经历", en: "Experience" } },
+  社交媒体: { group: { "zh-CN": "社交媒体", en: "Social" } },
+  标题: { label: { "zh-CN": "标题", en: "Heading" }, description: { "zh-CN": "整行标题或说明", en: "Full-width heading or note" } },
+  文本: { label: { "zh-CN": "文本", en: "Text" }, description: { "zh-CN": "文字区块", en: "Text block" } },
+  图片: { label: { "zh-CN": "图片", en: "Image" }, description: { "zh-CN": "上传图片", en: "Upload image" } },
+  链接: { label: { "zh-CN": "链接", en: "Link" }, description: { "zh-CN": "外部链接", en: "External link" } },
+  高光时刻: { label: { "zh-CN": "高光时刻", en: "Highlight" }, description: { "zh-CN": "状态或动态", en: "Status or update" } },
+  教育经历: { label: { "zh-CN": "教育经历", en: "Education" }, description: { "zh-CN": "教育卡片", en: "Education card" } },
+  工作经历: { label: { "zh-CN": "工作经历", en: "Work" }, description: { "zh-CN": "经历卡片", en: "Experience card" } },
+  获奖记录: { label: { "zh-CN": "获奖记录", en: "Award" }, description: { "zh-CN": "奖项或荣誉", en: "Award or honor" } }
+};
+
+function getLocalizedTemplateGroup(group: string, language: EditorLanguage) {
+  return localizedTemplateText[group]?.group?.[language] ?? group;
+}
+
+function getLocalizedTemplateLabel(template: BlockTemplate, language: EditorLanguage) {
+  return localizedTemplateText[template.label]?.label?.[language] ?? template.label;
+}
+
+function getLocalizedTemplateDescription(template: BlockTemplate, language: EditorLanguage) {
+  return localizedTemplateText[template.label]?.description?.[language] ?? template.description;
+}
+
 const blockSizePresets: { size: BlockSize; label: string; icon: React.ReactNode }[] = [
   { size: "small-square", label: "小方块", icon: <Square /> },
   { size: "wide", label: "横向 2 格", icon: <RectangleHorizontal /> },
@@ -199,6 +236,16 @@ const blockSizePresets: { size: BlockSize; label: string; icon: React.ReactNode 
   { size: "full-wide", label: "整行", icon: <RectangleHorizontal className="scale-125" /> },
   { size: "tall", label: "竖向", icon: <RectangleVertical /> }
 ];
+
+function getLocalizedBlockSizeLabel(size: BlockSize, language: EditorLanguage) {
+  const copy = editorCopy[language];
+  if (size === "small-square") return copy.blockSizeSmallSquare;
+  if (size === "wide") return copy.blockSizeWide;
+  if (size === "large-square") return copy.blockSizeLargeSquare;
+  if (size === "full-wide") return copy.blockSizeFullWide;
+  if (size === "tall") return copy.blockSizeTall;
+  return size;
+}
 
 const editorCanvasWidth: Record<LayoutDevice, number> = {
   desktop: 1180,
@@ -278,6 +325,7 @@ type EditorContentItem =
 
 export function AdminVisualEditor({ initialConfig }: { initialConfig: SiteConfig }) {
   const [baseConfig, setBaseConfig] = useState(() => normalizeContentFlowConfig(initialConfig));
+  const [editorLanguage, setEditorLanguage] = useState<EditorLanguage>(() => resolveInitialEditorLanguage());
   const [activeVariantId, setActiveVariantId] = useState(() => getMainVariantId(initialConfig));
   const [activeLocale, setActiveLocale] = useState(() => getVariantMainLocale(initialConfig, getMainVariantId(initialConfig)));
   const [modal, setModal] = useState<ModalState>(null);
@@ -327,6 +375,7 @@ export function AdminVisualEditor({ initialConfig }: { initialConfig: SiteConfig
   );
   const configRef = useRef(config);
   const editorDeviceRef = useRef(editorDevice);
+  const copy = editorCopy[editorLanguage];
   const sensors = useSensors(
     useSensor(MouseSensor, { activationConstraint: { distance: 6 } }),
     useSensor(TouchSensor, { activationConstraint: { delay: 320, tolerance: 10 } })
@@ -436,6 +485,15 @@ export function AdminVisualEditor({ initialConfig }: { initialConfig: SiteConfig
     window.addEventListener("beforeunload", confirmUnsavedChanges);
     return () => window.removeEventListener("beforeunload", confirmUnsavedChanges);
   }, [isDirty]);
+
+  useEffect(() => {
+    window.localStorage.setItem(editorLanguageStorageKey, editorLanguage);
+  }, [editorLanguage]);
+
+  function changeEditorLanguage(value: string) {
+    if (!isEditorLanguage(value)) return;
+    setEditorLanguage(value);
+  }
 
   function getCurrentDragRect(): MeasuredRect | null {
     const pointer = dragPointerRef.current;
@@ -736,7 +794,7 @@ export function AdminVisualEditor({ initialConfig }: { initialConfig: SiteConfig
   }
 
   function deleteBlock(blockId: string) {
-    if (!window.confirm("删除这个 Block？")) return;
+    if (!window.confirm(copy.deleteBlockConfirm)) return;
     update({ ...config, blocks: normalizeBlocks(config.blocks.filter((block) => block.id !== blockId)) });
     setModal(null);
   }
@@ -748,9 +806,11 @@ export function AdminVisualEditor({ initialConfig }: { initialConfig: SiteConfig
     const newBlock: Block = {
       id: crypto.randomUUID(),
       sectionId: topLevelBlockSectionId,
-      title: template.defaultTitle ?? (isTextSection ? "New Section" : template.label),
-      subtitle: template.defaultSubtitle ?? (isPlainTextBlock ? "" : template.description),
-      description: template.defaultDescription ?? "",
+      title: isPlainTextBlock
+        ? copy.blockNewTextTitle
+        : template.defaultTitle ?? (isTextSection ? (editorLanguage === "zh-CN" ? "新区块标题" : "New Section") : getLocalizedTemplateLabel(template, editorLanguage)),
+      subtitle: template.defaultSubtitle ?? (isPlainTextBlock ? "" : getLocalizedTemplateDescription(template, editorLanguage)),
+      description: template.defaultDescription ?? (isPlainTextBlock ? copy.blockNewTextDescription : ""),
       size: isTextSection ? "section-text" : template.size,
       responsiveSizes: isTextSection
         ? {
@@ -787,7 +847,7 @@ export function AdminVisualEditor({ initialConfig }: { initialConfig: SiteConfig
     const block: Block = {
       id: crypto.randomUUID(),
       sectionId: topLevelBlockSectionId,
-      title: "New Section",
+      title: editorLanguage === "zh-CN" ? "新区块标题" : "New Section",
       subtitle: "",
       description: "",
       size: "section-text",
@@ -1113,7 +1173,7 @@ export function AdminVisualEditor({ initialConfig }: { initialConfig: SiteConfig
   async function save() {
     const result = validateSiteConfig(baseConfig);
     if (!result.success) {
-      toast.error("保存失败", { description: result.error });
+      toast.error(copy.saveFailed, { description: result.error });
       return;
     }
 
@@ -1127,13 +1187,13 @@ export function AdminVisualEditor({ initialConfig }: { initialConfig: SiteConfig
     setIsSaving(false);
 
     if (!response.ok) {
-      toast.error("保存失败", { description: body?.error ?? "Unknown error" });
+      toast.error(copy.saveFailed, { description: body?.error ?? "Unknown error" });
       return;
     }
 
     setBaseConfig((current) => ({ ...current, updatedAt: body?.updatedAt ?? new Date().toISOString() }));
     setIsDirty(false);
-    toast.success("已保存");
+    toast.success(copy.saveSuccess);
   }
 
   return (
@@ -1143,16 +1203,16 @@ export function AdminVisualEditor({ initialConfig }: { initialConfig: SiteConfig
           <div className="flex items-center justify-between gap-3 md:contents">
             <div className="md:order-1">
               <p className="text-sm font-semibold">{baseConfig.settings.projectName}</p>
-              <p className="text-xs text-[#6B7280]">{isDirty ? "有未保存修改" : "已保存"}</p>
+              <p className="text-xs text-[#6B7280]">{isDirty ? copy.unsaved : copy.saved}</p>
             </div>
             <div className="flex items-center justify-end gap-2 md:order-3">
               <Button variant="secondary" size="sm" onClick={() => setModal({ type: "project-settings" })}>
                 <Settings className="h-4 w-4" />
-                项目设置
+                {copy.projectSettings}
               </Button>
               <Button size="sm" onClick={save} disabled={isSaving || !validation.success}>
                 <Save className="h-4 w-4" />
-                {isSaving ? "保存中" : "保存"}
+                {isSaving ? copy.saving : copy.save}
               </Button>
             </div>
           </div>
@@ -1166,7 +1226,7 @@ export function AdminVisualEditor({ initialConfig }: { initialConfig: SiteConfig
                   onClick={openTopBarOverrideDialog}
                   className="h-9 rounded-full border-[#BFDBFE] bg-[#EFF6FF] px-3 text-xs text-[#1E3A5F] hover:bg-[#DBEAFE]"
                 >
-                  版本覆盖
+                  {copy.variantOverride}
                 </Button>
                 <Select
                   value={resolvedActiveVariantId}
@@ -1234,6 +1294,7 @@ export function AdminVisualEditor({ initialConfig }: { initialConfig: SiteConfig
                 <EditableProfile
                   profile={config.profile}
                   device={editorDevice}
+                  editorLanguage={editorLanguage}
                   onPatch={patchProfile}
                   onEditTags={() => setModal({ type: "tags" })}
                   onEditSocial={() => setModal({ type: "social" })}
@@ -1474,6 +1535,7 @@ export function AdminVisualEditor({ initialConfig }: { initialConfig: SiteConfig
           <FloatingToolbar
             device={editorDevice}
             canEditDesktop={canEditDesktop}
+            editorLanguage={editorLanguage}
             onDeviceChange={(device) => {
               if (device === "desktop" && !canEditDesktop) return;
               setResizeDrafts({});
@@ -1482,16 +1544,17 @@ export function AdminVisualEditor({ initialConfig }: { initialConfig: SiteConfig
             }}
             onAddBlock={() => setModal({ type: "add-block" })}
           />
-          {resizePreviewSize ? <ResizePreview activeSize={resizePreviewSize} /> : null}
+          {resizePreviewSize ? <ResizePreview activeSize={resizePreviewSize} editorLanguage={editorLanguage} /> : null}
         </>
       ) : null}
 
       {modal ? (
         <EditorModal
-          title={modalTitle(modal)}
+          title={modalTitle(modal, editorLanguage)}
           onClose={() => setModal(null)}
           onSave={save}
           isSaving={isSaving}
+          editorLanguage={editorLanguage}
           canSave={modal.type !== "project-settings" || validation.success}
           footerStart={
             modal.type === "block" ? (
@@ -1503,20 +1566,21 @@ export function AdminVisualEditor({ initialConfig }: { initialConfig: SiteConfig
                 className="text-red-600 hover:bg-red-50 hover:text-red-700"
               >
                 <Trash2 className="h-4 w-4" />
-                删除/delete
+                {copy.delete}
               </Button>
             ) : null
           }
         >
-          {modal.type === "tags" ? <TagsQuickForm profile={config.profile} onPatch={patchProfile} /> : null}
-          {modal.type === "social" ? <SocialLinksQuickForm profile={config.profile} onPatch={patchProfile} /> : null}
+          {modal.type === "tags" ? <TagsQuickForm profile={config.profile} onPatch={patchProfile} editorLanguage={editorLanguage} /> : null}
+          {modal.type === "social" ? <SocialLinksQuickForm profile={config.profile} onPatch={patchProfile} editorLanguage={editorLanguage} /> : null}
           {modal.type === "block" ? (
             <BlockModalBody
               block={config.blocks.find((block) => block.id === modal.blockId)}
               onPatch={(patch) => patchBlock(modal.blockId, patch)}
+              editorLanguage={editorLanguage}
             />
           ) : null}
-          {modal.type === "add-block" ? <AddBlockDialog onAdd={addBlock} /> : null}
+          {modal.type === "add-block" ? <AddBlockDialog onAdd={addBlock} editorLanguage={editorLanguage} /> : null}
           {modal.type === "project-settings" ? (
             <ProjectSettingsForm
               config={baseConfig}
@@ -1527,6 +1591,8 @@ export function AdminVisualEditor({ initialConfig }: { initialConfig: SiteConfig
               onContentChange={update}
               onExport={exportConfig}
               onImport={importConfig}
+              editorLanguage={editorLanguage}
+              onEditorLanguageChange={changeEditorLanguage}
             />
           ) : null}
         </EditorModal>
@@ -1548,16 +1614,19 @@ export function AdminVisualEditor({ initialConfig }: { initialConfig: SiteConfig
 function EditableProfile({
   profile,
   device,
+  editorLanguage,
   onPatch,
   onEditTags,
   onEditSocial
 }: {
   profile: Profile;
   device: LayoutDevice;
+  editorLanguage: EditorLanguage;
   onPatch: (patch: Partial<Profile>) => void;
   onEditTags: () => void;
   onEditSocial: () => void;
 }) {
+  const copy = editorCopy[editorLanguage];
   return (
     <aside className={cn(device === "desktop" && "sticky top-24 self-start")}>
       <div className="grid w-full gap-5 rounded-[28px] bg-white p-6 text-left">
@@ -1569,7 +1638,7 @@ function EditableProfile({
               value=""
               shape="circle"
               label=""
-              buttonText="编辑"
+              buttonText={editorLanguage === "zh-CN" ? "编辑" : "Edit"}
               buttonIconOnly
               buttonClassName="h-9 w-9 rounded-full border border-[#EAEAEA] bg-white p-0 text-black shadow-soft hover:bg-white"
               onUploaded={(url) => onPatch({ avatarUrl: url })}
@@ -1600,7 +1669,7 @@ function EditableProfile({
           </div>
           <InlineProfileText
             value={profile.location ?? ""}
-            placeholder="添加 base/location"
+            placeholder={editorLanguage === "zh-CN" ? "添加位置" : "Add location"}
             className="inline-flex w-fit rounded-xl px-1 text-sm text-[#64748B] hover:bg-[#F1F5F9]"
             onChange={(location) => onPatch({ location })}
             prefix={<MapPin className="h-4 w-4" />}
@@ -1614,7 +1683,7 @@ function EditableProfile({
           </div>
           <button type="button" onClick={onEditTags} className="w-fit rounded-full border border-dashed border-[#D9E6F8] px-3 py-1.5 text-sm font-medium text-[#1479FF]">
             <Pencil className="mr-1 inline h-3.5 w-3.5" />
-            修改/添加 Tag
+            {editorLanguage === "zh-CN" ? `修改或添加${copy.tag}` : `Edit or Add ${copy.tag}`}
           </button>
           <div className="flex flex-wrap gap-2">
             {[...profile.socialLinks]
@@ -1633,7 +1702,7 @@ function EditableProfile({
               ))}
             <button type="button" onClick={onEditSocial} className="inline-flex items-center gap-2 rounded-full border border-dashed border-[#D9E6F8] px-3 py-2 text-sm font-medium text-[#1479FF]">
               <Plus className="h-3.5 w-3.5" />
-              社交按钮/social
+              {editorLanguage === "zh-CN" ? "社交按钮" : "Social Buttons"}
             </button>
           </div>
         </div>
@@ -3555,14 +3624,17 @@ function clamp(value: number, min: number, max: number) {
 function FloatingToolbar({
   device,
   canEditDesktop,
+  editorLanguage,
   onDeviceChange,
   onAddBlock
 }: {
   device: LayoutDevice;
   canEditDesktop: boolean;
+  editorLanguage: EditorLanguage;
   onDeviceChange: (device: LayoutDevice) => void;
   onAddBlock: () => void;
 }) {
+  const copy = editorCopy[editorLanguage];
   return (
     <div className="fixed bottom-6 left-1/2 z-30 flex -translate-x-1/2 items-center gap-2 rounded-[24px] border border-[#EAF0F8] bg-white p-2 shadow-[0_14px_44px_rgba(15,23,42,0.14)]">
       <div className="flex rounded-[18px] bg-[#F1F5F9] p-1">
@@ -3577,7 +3649,7 @@ function FloatingToolbar({
                 ? "text-[#64748B] hover:bg-white"
                 : "cursor-not-allowed text-[#CBD5E1]"
           }`}
-          title={canEditDesktop ? "桌面端" : "手机设备只能编辑移动端"}
+          title={canEditDesktop ? copy.desktop : copy.desktopDisabled}
         >
           <Laptop className="h-4 w-4" />
         </button>
@@ -3587,26 +3659,26 @@ function FloatingToolbar({
           className={`grid h-10 w-10 place-items-center rounded-[14px] transition ${
             device === "mobile" ? "bg-black text-white shadow-soft" : "text-[#64748B] hover:bg-white"
           }`}
-          title="移动端"
+          title={copy.mobile}
         >
           <Smartphone className="h-4 w-4" />
         </button>
       </div>
       <Button onClick={onAddBlock} className="h-10 whitespace-nowrap px-3">
         <Plus className="h-4 w-4" />
-        添加 Block
+        {copy.addBlock}
       </Button>
     </div>
   );
 }
 
-function ResizePreview({ activeSize }: { activeSize: BlockSize }) {
+function ResizePreview({ activeSize, editorLanguage }: { activeSize: BlockSize; editorLanguage: EditorLanguage }) {
   return (
     <div className="fixed bottom-6 left-1/2 z-40 flex -translate-x-1/2 items-center gap-4 rounded-[28px] border border-[#EAF0F8] bg-white/96 px-6 py-3 shadow-[0_18px_60px_rgba(15,23,42,0.18)] backdrop-blur">
       {blockSizePresets.map((preset) => (
         <div
           key={preset.size}
-          title={preset.label}
+          title={getLocalizedBlockSizeLabel(preset.size, editorLanguage)}
           className={`grid h-11 w-11 place-items-center rounded-xl border transition [&>span>svg]:h-6 [&>span>svg]:w-6 ${
             activeSize === preset.size
               ? "border-[#1479FF] bg-[#1479FF] text-white"
@@ -3626,6 +3698,7 @@ function EditorModal({
   onClose,
   onSave,
   isSaving,
+  editorLanguage,
   canSave = true,
   tone = "light",
   footerStart
@@ -3635,11 +3708,13 @@ function EditorModal({
   onClose: () => void;
   onSave: () => Promise<void>;
   isSaving: boolean;
+  editorLanguage: EditorLanguage;
   canSave?: boolean;
   tone?: "light" | "dark";
   footerStart?: React.ReactNode;
 }) {
   const isDark = tone === "dark";
+  const copy = editorCopy[editorLanguage];
   return (
     <div className="fixed inset-0 z-50 grid place-items-center bg-black/30 p-4 backdrop-blur-sm" onMouseDown={onClose}>
       <div
@@ -3659,7 +3734,7 @@ function EditorModal({
         <div className={cn("flex items-center justify-between gap-3 border-t px-5 py-4", isDark ? "border-white/10" : "border-[#EEF2F7]")}>
           <div>{footerStart}</div>
           <div className="flex justify-end gap-2">
-            <Button variant="ghost" onClick={onClose} className={cn(isDark && "text-white hover:bg-white/10")}>取消</Button>
+            <Button variant="ghost" onClick={onClose} className={cn(isDark && "text-white hover:bg-white/10")}>{copy.cancel}</Button>
             <Button
               onClick={async () => {
                 await onSave();
@@ -3668,7 +3743,7 @@ function EditorModal({
               disabled={isSaving || !canSave}
               className={cn(isDark ? "rounded-full bg-white text-black hover:bg-white/90" : "bg-black hover:bg-black/90")}
             >
-              {isSaving ? "保存中" : "保存"}
+              {isSaving ? copy.saving : copy.save}
             </Button>
           </div>
         </div>
@@ -3677,7 +3752,16 @@ function EditorModal({
   );
 }
 
-function TagsQuickForm({ profile, onPatch }: { profile: Profile; onPatch: (patch: Partial<Profile>) => void }) {
+function TagsQuickForm({
+  profile,
+  onPatch,
+  editorLanguage
+}: {
+  profile: Profile;
+  onPatch: (patch: Partial<Profile>) => void;
+  editorLanguage: EditorLanguage;
+}) {
+  const copy = editorCopy[editorLanguage];
   function updateTag(index: number, value: string) {
     onPatch({ tags: profile.tags.map((tag, itemIndex) => (itemIndex === index ? value : tag)) });
   }
@@ -3685,10 +3769,10 @@ function TagsQuickForm({ profile, onPatch }: { profile: Profile; onPatch: (patch
   return (
     <div className="grid gap-4">
       <div className="flex items-center justify-between">
-        <p className="text-sm text-[#64748B]">编辑个人页标签，拖拽排序先不放这里，使用上下按钮更稳。</p>
-        <Button type="button" variant="secondary" size="sm" onClick={() => onPatch({ tags: [...profile.tags, "New Tag"] })}>
+        <p className="text-sm text-[#64748B]">{copy.tagsHelp}</p>
+        <Button type="button" variant="secondary" size="sm" onClick={() => onPatch({ tags: [...profile.tags, editorLanguage === "zh-CN" ? "新标签" : "New Tag"] })}>
           <Plus className="h-4 w-4" />
-          添加/add
+          {copy.addTag}
         </Button>
       </div>
       <div className="grid gap-2">
@@ -3723,7 +3807,16 @@ function TagsQuickForm({ profile, onPatch }: { profile: Profile; onPatch: (patch
   );
 }
 
-function SocialLinksQuickForm({ profile, onPatch }: { profile: Profile; onPatch: (patch: Partial<Profile>) => void }) {
+function SocialLinksQuickForm({
+  profile,
+  onPatch,
+  editorLanguage
+}: {
+  profile: Profile;
+  onPatch: (patch: Partial<Profile>) => void;
+  editorLanguage: EditorLanguage;
+}) {
+  const copy = editorCopy[editorLanguage];
   const orderedLinks = [...profile.socialLinks].sort(bySortOrder);
   const [expandedLinkIds, setExpandedLinkIds] = useState<Set<string>>(() => new Set(orderedLinks[0]?.id ? [orderedLinks[0].id] : []));
   const allExpanded = orderedLinks.length > 0 && orderedLinks.every((link) => expandedLinkIds.has(link.id));
@@ -3743,7 +3836,7 @@ function SocialLinksQuickForm({ profile, onPatch }: { profile: Profile; onPatch:
   return (
     <div className="grid gap-5 text-[#333]">
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <p className="text-sm text-[#64748B]">社交按钮会显示在 tags 下方，可以设置跳转或复制内容。</p>
+        <p className="text-sm text-[#64748B]">{copy.socialButtonsHelp}</p>
         <div className="flex flex-wrap items-center gap-2">
           <Button
             type="button"
@@ -3751,7 +3844,7 @@ function SocialLinksQuickForm({ profile, onPatch }: { profile: Profile; onPatch:
             size="sm"
             onClick={() => setExpandedLinkIds(allExpanded ? new Set<string>() : new Set(orderedLinks.map((link) => link.id)))}
           >
-            {allExpanded ? "全部折叠" : "全部展开"}
+            {allExpanded ? copy.allCollapse : copy.allExpand}
           </Button>
           <Button
             type="button"
@@ -3760,7 +3853,7 @@ function SocialLinksQuickForm({ profile, onPatch }: { profile: Profile; onPatch:
             onClick={() => {
               const newLink: SocialLink = {
                 id: crypto.randomUUID(),
-                label: "New Link",
+                label: copy.newLink,
                 icon: "link",
                 href: "https://",
                 actionType: "link",
@@ -3773,7 +3866,7 @@ function SocialLinksQuickForm({ profile, onPatch }: { profile: Profile; onPatch:
             }}
           >
             <Plus className="h-4 w-4" />
-            添加/add
+            {copy.add}
           </Button>
         </div>
       </div>
@@ -3797,7 +3890,7 @@ function SocialLinksQuickForm({ profile, onPatch }: { profile: Profile; onPatch:
                     })
                   }
                   className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-[#F8FAFC] text-[#64748B] transition hover:bg-[#EFF6FF] hover:text-[#1E3A5F]"
-                  aria-label={isExpanded ? "折叠社交媒体标签" : "展开社交媒体标签"}
+                  aria-label={isExpanded ? (editorLanguage === "zh-CN" ? "折叠社交媒体标签" : "Collapse social link") : (editorLanguage === "zh-CN" ? "展开社交媒体标签" : "Expand social link")}
                 >
                   <ChevronDown className={cn("h-4 w-4 transition-transform duration-200", isExpanded && "rotate-180")} />
                 </button>
@@ -3806,7 +3899,7 @@ function SocialLinksQuickForm({ profile, onPatch }: { profile: Profile; onPatch:
                     <SocialIcon name={link.icon} />
                   </span>
                   <span className="grid min-w-0 gap-0.5">
-                    <span className="truncate text-sm font-semibold text-[#111]">{link.label || "New Link"}</span>
+                    <span className="truncate text-sm font-semibold text-[#111]">{link.label || copy.newLink}</span>
                     <span className="truncate text-xs text-[#64748B]">{link.href || link.actionType || "link"}</span>
                   </span>
                 </div>
@@ -3826,25 +3919,25 @@ function SocialLinksQuickForm({ profile, onPatch }: { profile: Profile; onPatch:
                 <div className="min-h-0 overflow-hidden">
                   <div className="mt-3 grid gap-3 border-t border-[#EEF2F7] pt-3">
                   <div className="grid gap-3 md:grid-cols-2">
-                    <Field label="名称/label">
+                    <Field label={editorLanguage === "zh-CN" ? "名称" : "Label"}>
                       <Input value={link.label} onChange={(event) => updateSocial(link.id, { label: event.target.value })} />
                     </Field>
-                    <Field label="类型/type">
+                    <Field label={editorLanguage === "zh-CN" ? "类型" : "Type"}>
                       <Select value={link.actionType ?? "link"} onChange={(event) => updateSocial(link.id, { actionType: event.target.value as SocialLink["actionType"] })}>
-                        <option value="link">前往链接/link</option>
-                        <option value="copy">复制内容/copy</option>
+                        <option value="link">{copy.linkAction}</option>
+                        <option value="copy">{copy.blockCopyText}</option>
                       </Select>
                     </Field>
-                    <Field label="链接/link" className="md:col-span-2">
+                    <Field label={copy.blockHref} className="md:col-span-2">
                       <Input value={link.href} onChange={(event) => patchHref(link, event.target.value)} />
                     </Field>
                     {link.actionType === "copy" ? (
-                      <Field label="复制内容/copy text" className="md:col-span-2">
+                      <Field label={copy.blockCopyText} className="md:col-span-2">
                         <Input value={link.copyText ?? ""} onChange={(event) => updateSocial(link.id, { copyText: event.target.value })} />
                       </Field>
                     ) : null}
                   </div>
-                  <Field label="图标/icon">
+                  <Field label={editorLanguage === "zh-CN" ? "图标" : "Icon"}>
                     <div className="flex flex-wrap gap-2">
                       {socialIconPresets.map((icon) => (
                         <button
@@ -3870,11 +3963,11 @@ function SocialLinksQuickForm({ profile, onPatch }: { profile: Profile; onPatch:
                   <div className="flex flex-wrap gap-4 text-sm text-[#475569]">
                     <label className="flex items-center gap-2">
                       <Checkbox checked={link.isVisible} onChange={(event) => updateSocial(link.id, { isVisible: event.target.checked })} />
-                      显示/visible
+                      {copy.visible}
                     </label>
                     <label className="flex items-center gap-2">
                       <Checkbox checked={link.openInNewTab ?? true} onChange={(event) => updateSocial(link.id, { openInNewTab: event.target.checked })} />
-                      新窗口/open tab
+                      {copy.openTab}
                     </label>
                   </div>
                 </div>
@@ -3918,31 +4011,34 @@ function ProfileQuickForm({ profile, onPatch }: { profile: Profile; onPatch: (pa
 
 function BlockModalBody({
   block,
-  onPatch
+  onPatch,
+  editorLanguage
 }: {
   block?: Block;
   onPatch: (patch: Partial<Block>) => void;
+  editorLanguage: EditorLanguage;
 }) {
   if (!block) return null;
-  return <BlockForm block={block} onPatch={onPatch} />;
+  return <BlockForm block={block} onPatch={onPatch} editorLanguage={editorLanguage} />;
 }
 
-function AddBlockDialog({ onAdd }: { onAdd: (template: BlockTemplate) => void }) {
+function AddBlockDialog({ onAdd, editorLanguage }: { onAdd: (template: BlockTemplate) => void; editorLanguage: EditorLanguage }) {
+  const copy = editorCopy[editorLanguage];
   return (
     <div className="grid gap-5">
       <div className="rounded-xl bg-[#F3F5F9] px-4 py-3 text-sm text-[#7A8190]">
-        不用太有压力，就像书摘一样，只添加你觉得最酷的事儿。
+        {copy.blockTemplatesNote}
       </div>
       {blockTemplates.map((group) => (
         <section key={group.group} className="grid gap-3">
-          <h4 className="font-bold">{group.group}</h4>
+          <h4 className="font-bold">{getLocalizedTemplateGroup(group.group, editorLanguage)}</h4>
           <div className="grid grid-cols-3 gap-4 sm:grid-cols-6">
             {group.items.map((item) => (
               <button key={`${group.group}-${item.label}`} type="button" onClick={() => onAdd(item)} className="grid justify-items-center gap-2 rounded-2xl p-3 text-center hover:bg-[#F8FBFF]">
                 <span className="grid h-12 w-12 place-items-center rounded-xl border border-[#EAF0F8] bg-white text-[#1479FF] [&>svg]:h-6 [&>svg]:w-6">
                   {item.icon}
                 </span>
-                <span className="text-xs font-medium">{item.label}</span>
+                <span className="text-xs font-medium">{getLocalizedTemplateLabel(item, editorLanguage)}</span>
               </button>
             ))}
           </div>
@@ -3960,7 +4056,9 @@ function ProjectSettingsForm({
   onChange,
   onContentChange,
   onExport,
-  onImport
+  onImport,
+  editorLanguage,
+  onEditorLanguageChange
 }: {
   config: SiteConfig;
   contentConfig: SiteConfig;
@@ -3970,7 +4068,10 @@ function ProjectSettingsForm({
   onContentChange: (config: SiteConfig) => void;
   onExport: () => void;
   onImport: (file: File) => Promise<void>;
+  editorLanguage: EditorLanguage;
+  onEditorLanguageChange: (language: string) => void;
 }) {
+  const copy = editorCopy[editorLanguage];
   const theme = contentConfig.theme;
   const settings = config.settings;
   const contentSettings = contentConfig.settings;
@@ -4297,12 +4398,12 @@ function ProjectSettingsForm({
   }
 
   const panels: { id: ProjectSettingsPanel; label: string; description: string }[] = [
-    { id: "basic", label: "基础与编辑器", description: "项目名称与编辑器基础行为" },
-    { id: "web", label: "网页与域名", description: "公开页面标题、描述和 URL" },
-    { id: "seo", label: "SEO", description: "搜索与分享卡片信息" },
-    { id: "audiences", label: "多版本&多语言", description: "版本下面添加语言" },
-    { id: "appearance", label: "外观", description: "颜色、字体和展示开关" },
-    { id: "config", label: "配置导入导出", description: "JSON 备份和恢复" }
+    { id: "basic", label: copy.settingsBasicTitle, description: copy.settingsBasicDescription },
+    { id: "web", label: copy.settingsWebTitle, description: copy.settingsWebDescription },
+    { id: "seo", label: copy.seoPanel, description: copy.seoPanelDescription },
+    { id: "audiences", label: copy.audiencesPanel, description: copy.audiencesPanelDescription },
+    { id: "appearance", label: copy.appearancePanel, description: copy.appearancePanelDescription },
+    { id: "config", label: copy.configPanel, description: copy.configPanelDescription }
   ];
 
   return (
@@ -4329,13 +4430,25 @@ function ProjectSettingsForm({
       <div className="min-w-0">
         {activePanel === "basic" ? (
           <section className="grid gap-4">
-            <Field label="项目名称/project name">
+            <Field label={copy.projectName}>
               <Input value={settings.projectName} onChange={(event) => patchSettings({ projectName: event.target.value })} />
+            </Field>
+            <Field label={copy.editorLanguage}>
+              <div className="grid gap-1.5">
+                <Select value={editorLanguage} onChange={(event) => onEditorLanguageChange(event.target.value)}>
+                  {editorLanguageOptions.map((language) => (
+                    <option key={language.code} value={language.code}>
+                      {language.label}
+                    </option>
+                  ))}
+                </Select>
+                <p className="text-xs font-normal text-[#64748B]">{copy.editorLanguageHelp}</p>
+              </div>
             </Field>
             <div className="rounded-xl border border-red-100 bg-red-50/60 p-3">
               <Button type="button" variant="ghost" size="sm" onClick={logoutAdmin} className="text-red-600 hover:bg-red-100 hover:text-red-700">
                 <LogOut className="h-4 w-4" />
-                退出登录管理端
+                {editorLanguage === "zh-CN" ? "退出登录管理端" : "Log Out of Admin"}
               </Button>
             </div>
           </section>
@@ -4865,10 +4978,11 @@ function ScopeBadges({ variantName, languageName }: { variantName: string; langu
   );
 }
 
-function modalTitle(modal: NonNullable<ModalState>) {
-  if (modal.type === "tags") return "编辑 Tags";
-  if (modal.type === "social") return "编辑社交媒体标签";
-  if (modal.type === "block") return "编辑 Block";
-  if (modal.type === "add-block") return "添加 Block";
-  return "项目设置";
+function modalTitle(modal: NonNullable<ModalState>, editorLanguage: EditorLanguage) {
+  const copy = editorCopy[editorLanguage];
+  if (modal.type === "tags") return copy.tagsEdit;
+  if (modal.type === "social") return copy.socialEdit;
+  if (modal.type === "block") return copy.blockEdit;
+  if (modal.type === "add-block") return copy.addBlock;
+  return copy.projectSettings;
 }
