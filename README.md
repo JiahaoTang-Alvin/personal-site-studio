@@ -41,22 +41,33 @@
 
 - **模块化搭建主页**  
   通过卡片模块搭建个人主页。项目、图片、视频、文本、链接、状态和社交卡片都可以作为独立模块自由排列。
+  
+  <img width="828" height="480" alt="Export-1783504403991" src="https://github.com/user-attachments/assets/c956df7d-89ef-4f86-a561-18f1b7ecc670" />
 
 - **拖拽式编辑体验**  
   在后台直接拖拽排序、调整卡片尺寸，不需要每次改代码。
+  
+  <img width="828" height="480" alt="Export-1783504515592" src="https://github.com/user-attachments/assets/c48d027e-4ce5-4f43-a2f6-2d247d2a4723" />
 
 - **左右分区展示**  
   左侧固定展示个人身份信息，右侧用于展示作品、项目、视觉内容和扩展模块，适合个人品牌和作品集展示。
 
 - **桌面端 / 移动端分别适配**  
   同一套内容可以分别调整桌面端和移动端布局，避免手机端展示变形。
+  
+  <img width="828" height="480" alt="Export-1783504602389" src="https://github.com/user-attachments/assets/db6aacc6-3413-40bc-939b-48abd5939661" />
+
 
 - **隐藏版本访问**  
   可以为不同受众创建不同主页版本，例如求职版、社交版、活动版、合作版。每个版本都可以拥有独立内容和独立布局。
+  
+  <img width="792" height="480" alt="Export-1783504935862" src="https://github.com/user-attachments/assets/f07673af-bf8d-46ee-837a-f1bc3ac4a0c8" />
 
 - **版本下支持多语言**  
   不只是“一个网站多语言”，而是“不同版本下也可以配置不同语言”。  
   例如你可以有一个 `resume` 简历版，并在这个版本下分别配置中文和英文内容；也可以有一个 `social` 社交版，在这个版本下配置更轻松的中文介绍。
+
+  <img width="792" height="480" alt="Export-1783505206381" src="https://github.com/user-attachments/assets/ba8a5c19-caf3-4e25-bdf3-3f4d34a0fb65" />
 
 - **图片上传和裁剪**  
   支持上传头像、项目图、图片模块、二维码等素材，并保存到 Vercel Blob。
