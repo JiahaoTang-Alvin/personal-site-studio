@@ -3746,7 +3746,7 @@ function SocialLinksQuickForm({ profile, onPatch }: { profile: Profile; onPatch:
         {orderedLinks.map((link, index) => {
           const isExpanded = expandedLinkId === link.id;
           return (
-            <div key={link.id} className="grid gap-3 rounded-[18px] border border-[#EAEAEA] bg-white p-3">
+            <div key={link.id} className="grid rounded-[18px] border border-[#EAEAEA] bg-white p-3">
               <div className="flex flex-wrap items-center justify-between gap-2">
                 <button
                   type="button"
@@ -3779,7 +3779,7 @@ function SocialLinksQuickForm({ profile, onPatch }: { profile: Profile; onPatch:
             </div>
               <div className={cn("grid transition-[grid-template-rows] duration-200 ease-out", isExpanded ? "grid-rows-[1fr]" : "grid-rows-[0fr]")}>
                 <div className="min-h-0 overflow-hidden">
-                  <div className="grid gap-3 border-t border-[#EEF2F7] pt-3">
+                  <div className="mt-3 grid gap-3 border-t border-[#EEF2F7] pt-3">
                   <div className="grid gap-3 md:grid-cols-2">
                     <Field label="名称/label">
                       <Input value={link.label} onChange={(event) => updateSocial(link.id, { label: event.target.value })} />
@@ -4390,7 +4390,7 @@ function ProjectSettingsForm({
                 const accessCodeError = getVariantAccessCodeError(variant.id, variant.accessCode);
                 const isCollapsed = collapsedVariantIds.has(variant.id);
                 return (
-                  <div key={variant.id} className="grid gap-3 rounded-xl border border-[#EAEAEA] p-3">
+                  <div key={variant.id} className="grid rounded-xl border border-[#EAEAEA] p-3">
                     <div className="flex items-center gap-2">
                       <button
                         type="button"
@@ -4406,11 +4406,21 @@ function ProjectSettingsForm({
                           访问后缀：{variant.accessCode.trim() ? `/${variant.accessCode.trim()}` : "主版本留空"}
                         </p>
                       </div>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => removeVariant(variant.id)}
+                        disabled={settings.variants.variants.length <= 1}
+                        className="ml-auto text-red-600 hover:bg-red-50 hover:text-red-700 disabled:text-[#CBD5E1] disabled:hover:bg-transparent"
+                      >
+                        删除
+                      </Button>
                     </div>
                     <div className={cn("grid transition-[grid-template-rows] duration-200 ease-out", isCollapsed ? "grid-rows-[0fr]" : "grid-rows-[1fr]")}>
                       <div className="min-h-0 overflow-hidden">
-                        <div className="grid gap-3 pt-1">
-                          <div className="grid gap-2 md:grid-cols-[1fr_0.8fr_auto]">
+                        <div className="mt-3 grid gap-3 border-t border-[#EEF2F7] pt-3">
+                          <div className="grid gap-2 md:grid-cols-[1fr_0.8fr]">
                             <div className="grid gap-1.5">
                               <Field
                                 label={
@@ -4433,16 +4443,6 @@ function ProjectSettingsForm({
                               </Field>
                               {accessCodeError ? <p className="text-xs text-red-600">{accessCodeError}</p> : null}
                             </div>
-                            <Button
-                              type="button"
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => removeVariant(variant.id)}
-                              disabled={settings.variants.variants.length <= 1}
-                              className="text-red-600 hover:bg-red-50 hover:text-red-700 disabled:text-[#CBD5E1] disabled:hover:bg-transparent"
-                            >
-                              删除
-                            </Button>
                           </div>
                           <div className="grid gap-2">
                             <div className="flex items-center justify-between gap-3">
