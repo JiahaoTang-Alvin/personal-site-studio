@@ -234,6 +234,7 @@ const blockSizePresets: { size: BlockSize; label: string; icon: React.ReactNode 
   { size: "small-square", label: "小方块", icon: <Square /> },
   { size: "wide", label: "横向 2 格", icon: <RectangleHorizontal /> },
   { size: "large-square", label: "大方块 2x2", icon: <Square className="scale-125" /> },
+  { size: "full-short", label: "整行 3x1/2", icon: <RectangleHorizontal className="scale-x-125 scale-y-50" /> },
   { size: "full-wide", label: "整行", icon: <RectangleHorizontal className="scale-125" /> },
   { size: "full-tall", label: "整行 3x2", icon: <AppWindow className="scale-125" /> },
   { size: "full-square", label: "整行 3x3", icon: <Square className="scale-150" /> },
@@ -246,6 +247,7 @@ function getLocalizedBlockSizeLabel(size: BlockSize, language: EditorLanguage) {
   if (size === "small-square") return copy.blockSizeSmallSquare;
   if (size === "wide") return copy.blockSizeWide;
   if (size === "large-square") return copy.blockSizeLargeSquare;
+  if (size === "full-short") return copy.blockSizeFullShort;
   if (size === "full-wide") return copy.blockSizeFullWide;
   if (size === "full-tall") return copy.blockSizeFullTall;
   if (size === "full-square") return copy.blockSizeFullSquare;
@@ -3636,6 +3638,7 @@ function getPresetFromDraft({
     return logicalHalfRows >= 4 ? "large-square" : "wide";
   }
 
+  if (logicalHalfRows <= 1) return "full-short";
   if (logicalHalfRows >= 6) return "full-square";
   if (logicalHalfRows >= 4) return "full-tall";
   return "full-wide";

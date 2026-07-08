@@ -14,6 +14,7 @@ export const blockSizeClassByDevice: Record<LayoutDevice, Record<BlockSize, stri
     "small-square": "col-span-4 row-span-2",
     wide: "col-span-8 row-span-2",
     "large-square": "col-span-8 row-span-4",
+    "full-short": "col-span-12 row-span-1",
     "full-wide": "col-span-12 row-span-2",
     "full-tall": "col-span-12 row-span-4",
     "full-square": "col-span-12 row-span-6",
@@ -25,6 +26,7 @@ export const blockSizeClassByDevice: Record<LayoutDevice, Record<BlockSize, stri
     "small-square": "col-span-6 row-span-2",
     wide: "col-span-12 row-span-2",
     "large-square": "col-span-12 row-span-4",
+    "full-short": "col-span-12 row-span-1",
     "full-wide": "col-span-12 row-span-2",
     "full-tall": "col-span-12 row-span-4",
     "full-square": "col-span-12 row-span-6",
@@ -65,7 +67,7 @@ export function getLogicalColumnSpan(size: BlockSize, device: LayoutDevice) {
 }
 
 export function getDefaultRowSpan(size: BlockSize) {
-  if (size === "wide-short") return 1;
+  if (size === "wide-short" || size === "full-short") return 1;
   if (size === "full-square") return 6;
   if (size === "large-square" || size === "tall" || size === "full-tall") return 4;
   return 2;

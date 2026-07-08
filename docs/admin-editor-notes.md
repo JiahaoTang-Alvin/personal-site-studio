@@ -18,6 +18,7 @@ This document records the current admin editor behavior and the main implementat
 - The CSS grid uses a half-height row unit. Existing one-row cards span two CSS rows, which preserves the old visual size while allowing compact text blocks to use a half-height row.
 - A 1x1 square is still the visual base cell.
 - A 2x1/2 block spans two logical columns and one half-height row.
+- A 3x1/2 block spans the full desktop content width and one half-height row.
 - A 2x1 block has the same height as a 1x1 block.
 - A 2x2 block has the height of two rows plus the row gap.
 - Full-width cards can use 3x1, 3x2, or 3x3 presets on desktop; on mobile they remain full width with matching height presets.

@@ -3,6 +3,7 @@ export type BlockSize =
   | "small-square"
   | "wide"
   | "large-square"
+  | "full-short"
   | "full-wide"
   | "full-tall"
   | "full-square"
