@@ -1,4 +1,6 @@
+import { headers } from "next/headers";
 import { AdminLoginForm } from "@/components/admin/AdminLoginForm";
+import { resolveEditorLanguageFromLanguageTag } from "@/components/admin/editor-i18n";
 import { getSiteConfig } from "@/lib/site-config";
 
 export const dynamic = "force-dynamic";
@@ -7,10 +9,13 @@ export const fetchCache = "force-no-store";
 
 export default async function AdminLoginPage() {
   const config = await getSiteConfig();
+  const requestHeaders = await headers();
+  const initialLanguage = resolveEditorLanguageFromLanguageTag(requestHeaders.get("accept-language"));
 
   return (
-    <main className="grid min-h-screen place-items-center bg-[#FAFAFA] px-5">
-      <AdminLoginForm projectName={config.settings.projectName} />
+    <main className="relative grid min-h-screen place-items-center overflow-hidden bg-[#F7F7F5] px-5 py-12">
+      <div className="pointer-events-none absolute inset-x-0 top-0 h-px bg-[#111]/10" />
+      <AdminLoginForm projectName={config.settings.projectName} initialLanguage={initialLanguage} />
     </main>
   );
 }

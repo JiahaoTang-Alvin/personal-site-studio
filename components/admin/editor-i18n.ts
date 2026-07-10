@@ -13,8 +13,11 @@ export function resolveInitialEditorLanguage(): EditorLanguage {
   const saved = window.localStorage.getItem(editorLanguageStorageKey);
   if (isEditorLanguage(saved)) return saved;
 
-  const browserLanguage = window.navigator.language.toLowerCase();
-  return browserLanguage.startsWith("zh") ? "zh-CN" : "en";
+  return resolveEditorLanguageFromLanguageTag(window.navigator.language);
+}
+
+export function resolveEditorLanguageFromLanguageTag(language: string | null | undefined): EditorLanguage {
+  return language?.toLowerCase().startsWith("zh") ? "zh-CN" : "en";
 }
 
 export function isEditorLanguage(value: unknown): value is EditorLanguage {

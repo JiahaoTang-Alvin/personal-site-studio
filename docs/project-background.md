@@ -80,6 +80,7 @@ The short access code namespace must not collide with system paths such as `admi
 - `app/admin/page.tsx`: protected admin entry.
 - `proxy.ts`: public variant cookie view-count expiry.
 - `components/admin/AdminVisualEditor.tsx`: primary admin editor.
+- `components/admin/AdminLoginForm.tsx`: flat admin login surface; it reuses the saved editor language and otherwise follows the browser language.
 - `components/admin/ImageCropUploader.tsx`: shared image upload/crop dialog.
 - `components/admin/BlockForm.tsx`: block editing form.
 - `components/site/SiteLayout.tsx`: public layout shell.
