@@ -21,11 +21,14 @@ Useful setup options:
 # Open Vercel login/token setup and start CLI login
 bash "deploy skills/deploy-to-vercel/vercel-deploy-workbuddy/scripts/setup-vercel-project.sh" --login-only
 
-# Create/setup Blob when possible and generate ADMIN_PASSWORD
+# Create/setup Blob, require read-write token when the app code needs it, and generate ADMIN_PASSWORD
 bash "deploy skills/deploy-to-vercel/vercel-deploy-workbuddy/scripts/setup-vercel-project.sh" --generate-admin-password
 
 # Use a supplied admin password
 bash "deploy skills/deploy-to-vercel/vercel-deploy-workbuddy/scripts/setup-vercel-project.sh" --admin-password "<password>"
+
+# If the user provides a Vercel Blob read-write token, set it on the Vercel project
+bash "deploy skills/deploy-to-vercel/vercel-deploy-workbuddy/scripts/setup-vercel-project.sh" --blob-read-write-token "<token>"
 ```
 
 Run deployment after setup:
@@ -46,6 +49,8 @@ bash "deploy skills/deploy-to-vercel/vercel-deploy-workbuddy/scripts/deploy-verc
 - Prefer existing `VERCEL_TOKEN`, then existing `vercel login`, then opening login/token setup.
 - Prefer Vercel CLI automation before dashboard instructions.
 - Prefer `vercel blob create-store` before asking the user to create Blob manually.
+- If app source references `BLOB_READ_WRITE_TOKEN`, do not rewrite the app to OIDC automatically. Confirm or set `BLOB_READ_WRITE_TOKEN` instead.
+- `BLOB_STORE_ID` and `VERCEL_OIDC_TOKEN` alone are not enough for apps that explicitly require `BLOB_READ_WRITE_TOKEN`.
 - Read `.vercel/project.json` instead of asking the user for project IDs.
 - Default to preview deployments unless the user explicitly asks for production/live.
 - Return the deployment URL and the status from `vercel inspect`.

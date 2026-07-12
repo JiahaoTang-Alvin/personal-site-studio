@@ -8,6 +8,7 @@ SKIP_BLOB=false
 SKIP_ENV=false
 GENERATE_ADMIN_PASSWORD=false
 ADMIN_PASSWORD_VALUE="${ADMIN_PASSWORD:-}"
+BLOB_READ_WRITE_TOKEN_VALUE="${BLOB_READ_WRITE_TOKEN:-}"
 BLOB_STORE_NAME=""
 BLOB_REGION="iad1"
 
@@ -15,6 +16,7 @@ usage() {
   cat <<'USAGE'
 Usage: setup-vercel-project.sh [--path <project-dir>] [--login-only] [--skip-blob] [--skip-env]
                                [--generate-admin-password] [--admin-password <value>]
+                               [--blob-read-write-token <value>]
                                [--blob-store-name <name>] [--blob-region <region>]
 
 Prepare a Vercel project for WorkBuddy deployment.
@@ -45,6 +47,10 @@ while [[ $# -gt 0 ]]; do
       ;;
     --admin-password)
       ADMIN_PASSWORD_VALUE="${2:-}"
+      shift 2
+      ;;
+    --blob-read-write-token)
+      BLOB_READ_WRITE_TOKEN_VALUE="${2:-}"
       shift 2
       ;;
     --blob-store-name)
@@ -186,6 +192,20 @@ set_env_value() {
   rm -f "$tmp"
 }
 
+project_source_requires_blob_read_write_token() {
+  if command -v rg >/dev/null 2>&1; then
+    rg -q "BLOB_READ_WRITE_TOKEN" app lib components src pages .env.example README.md README.en.md 2>/dev/null
+    return $?
+  fi
+
+  grep -R "BLOB_READ_WRITE_TOKEN" app lib components src pages .env.example README.md README.en.md >/dev/null 2>&1
+}
+
+vercel_env_has_name() {
+  local name="$1"
+  vercel env ls 2>/dev/null | grep -q "$name"
+}
+
 ensure_admin_password() {
   if [[ "$SKIP_ENV" == true ]]; then
     return 0
@@ -238,6 +258,43 @@ ensure_blob_store() {
   vercel env pull .env.local || true
 }
 
+ensure_blob_read_write_token() {
+  if [[ "$SKIP_ENV" == true || "$SKIP_BLOB" == true ]]; then
+    return 0
+  fi
+
+  if ! project_source_requires_blob_read_write_token; then
+    return 0
+  fi
+
+  if [[ -n "$BLOB_READ_WRITE_TOKEN_VALUE" ]]; then
+    for env_name in production preview development; do
+      echo "Setting BLOB_READ_WRITE_TOKEN for $env_name..." >&2
+      set_env_value BLOB_READ_WRITE_TOKEN "$BLOB_READ_WRITE_TOKEN_VALUE" "$env_name"
+    done
+    return 0
+  fi
+
+  if vercel_env_has_name BLOB_READ_WRITE_TOKEN; then
+    echo "BLOB_READ_WRITE_TOKEN is already present in Vercel env vars." >&2
+    return 0
+  fi
+
+  if [[ -f ".env.local" ]] && grep -q "^BLOB_READ_WRITE_TOKEN=" .env.local; then
+    echo "BLOB_READ_WRITE_TOKEN is present in .env.local." >&2
+    return 0
+  fi
+
+  echo "Error: This project source explicitly requires BLOB_READ_WRITE_TOKEN." >&2
+  echo "Do not rewrite the app to use BLOB_STORE_ID / VERCEL_OIDC_TOKEN unless the user asks for a code migration." >&2
+  echo "Open the Vercel Blob Store -> Projects connection and click:" >&2
+  echo "  Add read-write token env var to this connection" >&2
+  echo "Then rerun setup, or pass the token with:" >&2
+  echo "  --blob-read-write-token <value>" >&2
+  open_url "https://vercel.com/dashboard"
+  exit 1
+}
+
 ensure_vercel
 ensure_auth
 
@@ -248,6 +305,7 @@ fi
 
 ensure_linked_project
 ensure_blob_store
+ensure_blob_read_write_token
 ensure_admin_password
 
 echo "Vercel project setup is complete." >&2

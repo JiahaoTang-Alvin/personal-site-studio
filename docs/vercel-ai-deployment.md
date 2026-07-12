@@ -32,7 +32,7 @@ Deploy this project as a normal Vercel Next.js project.
 Required Vercel features:
 
 - Vercel project linked to this repository or local checkout.
-- Vercel Blob store for config and media uploads.
+- Public Vercel Blob store for config and media uploads.
 - Server-only environment variables for admin auth and Blob access.
 
 Optional but recommended:
@@ -80,6 +80,13 @@ If the AI obtains or receives `BLOB_READ_WRITE_TOKEN`, it should:
 2. Optionally place it in local `.env.local` for local testing.
 3. Never commit it or print it back.
 
+Important Blob rule for this project:
+
+- The current source code checks `process.env.BLOB_READ_WRITE_TOKEN` in `lib/blob-config.ts` and `app/api/admin/upload/route.ts`.
+- Therefore the correct deployment path is to create/connect Blob and ensure `BLOB_READ_WRITE_TOKEN` exists.
+- Do not rewrite this project to use only `BLOB_STORE_ID` plus `VERCEL_OIDC_TOKEN` unless the user explicitly asks for a code migration.
+- `BLOB_STORE_ID` and `VERCEL_OIDC_TOKEN` alone are not enough for the current code path.
+
 ## Recommended AI Flow
 
 1. Inspect the project:
@@ -110,6 +117,18 @@ If the AI obtains or receives `BLOB_READ_WRITE_TOKEN`, it should:
    ```
    Try the CLI path before asking the user to create Blob in the dashboard.
 
+   After Blob creation, verify the write token:
+   ```bash
+   vercel env ls
+   grep '^BLOB_READ_WRITE_TOKEN=' .env.local 2>/dev/null
+   ```
+
+   If only `BLOB_STORE_ID` or `BLOB_WEBHOOK_PUBLIC_KEY` exists, setup is incomplete for this project. Open the Blob Store -> Projects connection and add the read-write token env var to this connection. The Vercel UI labels this action as:
+
+   ```text
+   Add read-write token env var to this connection
+   ```
+
 5. Set app env vars:
    ```bash
    printf "%s" "$NEXT_PUBLIC_SITE_URL" | vercel env add NEXT_PUBLIC_SITE_URL production
@@ -134,8 +153,9 @@ If the AI obtains or receives `BLOB_READ_WRITE_TOKEN`, it should:
 ## Fresh Deployment Checklist
 
 - Vercel project linked.
-- Blob store exists.
+- Public Blob store exists and is connected to the Vercel project.
 - `BLOB_READ_WRITE_TOKEN` is available to the deployed app.
+- Do not treat `BLOB_STORE_ID` or `VERCEL_OIDC_TOKEN` as a replacement for `BLOB_READ_WRITE_TOKEN` in this repository.
 - `NEXT_PUBLIC_SITE_URL` points to the production origin.
 - `ADMIN_PASSWORD` or `ADMIN_PASSWORD_HASH` is set.
 - `SESSION_SECRET` is set or intentionally omitted for simple setup.
@@ -148,4 +168,4 @@ If the AI obtains or receives `BLOB_READ_WRITE_TOKEN`, it should:
 - Blob CLI fails: report the CLI error, then guide the user to Vercel Dashboard -> Project -> Storage -> Create Database -> Blob.
 - Env var already exists: use `vercel env update`.
 - Build fails: run `vercel inspect <deployment-url> --logs`.
-- Admin save/upload fails with missing Blob token: add `BLOB_READ_WRITE_TOKEN` to the Vercel project and redeploy.
+- Admin save/upload fails with missing Blob token: add `BLOB_READ_WRITE_TOKEN` to the Vercel project and redeploy. Do not edit Blob code to bypass the missing token unless the user requests an OIDC migration.
