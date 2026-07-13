@@ -1,6 +1,6 @@
 "use client";
 
-import { ArrowRight, LoaderCircle, LockKeyhole, ShieldCheck } from "lucide-react";
+import { ArrowRight, LoaderCircle, ShieldCheck } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useState, useSyncExternalStore } from "react";
 import { toast } from "sonner";
@@ -83,16 +83,13 @@ export function AdminLoginForm({ projectName, initialLanguage }: AdminLoginFormP
   return (
     <section lang={language} className="w-full max-w-[400px]">
       <div className="mb-10">
-        <div className="mb-8 grid h-11 w-11 place-items-center rounded-[14px] bg-[#171717] text-white shadow-[0_1px_2px_rgba(0,0,0,0.16)]">
-          <LockKeyhole className="h-[18px] w-[18px]" strokeWidth={1.8} />
-        </div>
-        <p className="mb-3 text-[11px] font-semibold uppercase tracking-[0.18em] text-[#85857F]">{copy.eyebrow}</p>
-        <h1 className="text-[30px] font-semibold leading-[1.12] tracking-[-0.035em] text-[#171717]">{projectName}</h1>
-        <p className="mt-3 max-w-[360px] text-[15px] leading-6 text-[#6F6F69]">{copy.description}</p>
+        <p className="mb-3 text-[11px] font-semibold uppercase tracking-[0.18em] text-[#1479FF]">{copy.eyebrow}</p>
+        <h1 className="text-[30px] font-semibold leading-[1.12] tracking-[-0.035em] text-[#111111]">{projectName}</h1>
+        <p className="mt-3 max-w-[360px] text-[15px] leading-6 text-[#64748B]">{copy.description}</p>
       </div>
 
       <form onSubmit={submit} className="grid gap-5">
-        <label className="grid gap-2 text-[13px] font-medium text-[#3F3F3B]" htmlFor="admin-password">
+        <label className="grid gap-2 text-[13px] font-medium text-[#334155]" htmlFor="admin-password">
           <span>{copy.password}</span>
           <input
             id="admin-password"
@@ -108,10 +105,10 @@ export function AdminLoginForm({ projectName, initialLanguage }: AdminLoginFormP
             aria-invalid={hasError}
             aria-describedby={hasError ? "admin-login-error" : undefined}
             className={cn(
-              "h-12 w-full rounded-[14px] border bg-white px-4 text-[15px] text-[#171717] outline-none transition duration-200 placeholder:text-[#A3A39D] focus:ring-4",
+              "h-12 w-full rounded-[14px] border bg-white px-4 text-[15px] text-[#111111] outline-none transition duration-200 placeholder:text-[#94A3B8] focus:ring-4",
               hasError
                 ? "border-[#D85C5C] focus:border-[#C94343] focus:ring-[#D85C5C]/10"
-                : "border-[#DADAD5] hover:border-[#C3C3BD] focus:border-[#8C8C86] focus:ring-black/[0.045]"
+                : "border-[#D9E6F8] hover:border-[#AFCDF4] focus:border-[#1479FF] focus:ring-[#1479FF]/10"
             )}
           />
         </label>
@@ -125,7 +122,7 @@ export function AdminLoginForm({ projectName, initialLanguage }: AdminLoginFormP
         <button
           type="submit"
           disabled={isLoading || !password}
-          className="group inline-flex h-12 items-center justify-center gap-2 rounded-[14px] border border-[#171717] bg-[#171717] px-4 text-sm font-medium text-white transition duration-200 hover:bg-[#2B2B2B] disabled:cursor-not-allowed disabled:border-[#CFCFCA] disabled:bg-[#CFCFCA]"
+          className="group inline-flex h-12 items-center justify-center gap-2 rounded-[14px] border border-[#1479FF] bg-[#1479FF] px-4 text-sm font-medium text-white transition duration-200 hover:border-[#0F67D9] hover:bg-[#0F67D9] disabled:cursor-not-allowed disabled:border-[#B7D6FA] disabled:bg-[#B7D6FA]"
         >
           {isLoading ? (
             <>
@@ -141,8 +138,8 @@ export function AdminLoginForm({ projectName, initialLanguage }: AdminLoginFormP
         </button>
       </form>
 
-      <div className="mt-8 flex items-center gap-2 border-t border-[#E2E2DD] pt-5 text-[12px] text-[#8A8A84]">
-        <ShieldCheck className="h-3.5 w-3.5" strokeWidth={1.8} />
+      <div className="mt-8 flex items-center gap-2 border-t border-[#EAF0F8] pt-5 text-[12px] text-[#94A3B8]">
+        <ShieldCheck className="h-3.5 w-3.5 text-[#1479FF]" strokeWidth={1.8} />
         <span>{copy.secure}</span>
       </div>
     </section>

@@ -13,8 +13,8 @@ export default async function AdminLoginPage() {
   const initialLanguage = resolveEditorLanguageFromLanguageTag(requestHeaders.get("accept-language"));
 
   return (
-    <main className="relative grid min-h-screen place-items-center overflow-hidden bg-[#F7F7F5] px-5 py-12">
-      <div className="pointer-events-none absolute inset-x-0 top-0 h-px bg-[#111]/10" />
+    <main className="relative grid min-h-screen place-items-center overflow-hidden bg-[#F8FBFF] px-5 py-12">
+      <div className="pointer-events-none absolute inset-x-0 top-0 h-px bg-[#1479FF]/15" />
       <AdminLoginForm projectName={config.settings.projectName} initialLanguage={initialLanguage} />
     </main>
   );
